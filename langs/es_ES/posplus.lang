@@ -1,0 +1,189 @@
+# Translation file
+
+#
+# Generic
+#
+ModulePOSPlusName = POSPlus
+ModulePOSPlusDesc = Extensiones para TakePOS: cobro en varias monedas y cajas, ticket tipo recibo fiscal y arqueo de caja por turnos (reportes X y Z)
+
+#
+# Admin page
+#
+POSPlusSetup = Configuración de POSPlus
+Settings = Ajustes
+POSPlusSetupPage = Página de configuración de POSPlus
+NewSection=Nueva sección
+POSPLUS_MYPARAM1 = Mi parámetro 1
+POSPLUS_MYPARAM1Tooltip = Tooltip de mi parámetro 1
+POSPLUS_MYPARAM2=Mi parámetro 2
+POSPLUS_MYPARAM2Tooltip=Tooltip de mi parámetro 2
+
+
+#
+# About page
+#
+About = Acerca de
+POSPlusAbout = Acerca de POSPlus
+POSPlusAboutPage = Página acerca de POSPlus
+
+#
+# Sample page
+#
+POSPlusArea = Inicio POSPlus
+MyPageName = Nombre de mi página
+
+#
+# Sample widget
+#
+MyWidget = Mi widget
+MyWidgetDescription = Descripción de mi widget
+
+#
+# Cash close (TakePOS)
+#
+PosplusCashClose = Cierre de caja
+PosplusCashCloseDate = Fecha
+PosplusInvoicesIssued = Facturas emitidas
+PosplusTotalInvoiced = Total facturado
+PosplusBase = Base imponible
+PosplusVAT = IVA
+PosplusPaymentsBreakdown = Desglose de pagos
+PosplusPaymentMode = Modo de pago
+PosplusInflows = Entradas
+PosplusOutflows = Salidas
+PosplusNbPayments = Nº pagos
+PosplusNoData = Sin datos para esta terminal/fecha
+PosplusCaisseClose = Reporte de cierre de caja
+PosplusTerminal = Terminal
+Print = Imprimir
+PosplusCurrency = Moneda
+PosplusAmountForeign = Monto
+PosplusRate = Tasa
+PosplusAmountLocal = Equivalente
+PosplusPendingTitle = Pendiente por cobrar
+PosplusPendingInvoice = Factura
+PosplusPendingCustomer = Cliente
+PosplusPendingAmount = Monto pendiente
+PosplusReturnsTitle = Devoluciones
+PosplusReturnsRef = Abono
+PosplusReturnsOrigin = Factura origen
+PosplusReturnsCustomer = Cliente
+PosplusReturnsAmount = Importe
+PosplusNetTotal = Total neto
+
+#
+# Pay (TakePOS) - payplus
+#
+PosplusPayButton = Pagar
+PosplusPaymentReceived = Monto recibido
+PosplusEquivalent = Equivalente en moneda principal
+PosplusRegisterPayment = Registrar pago
+PosplusBankCurrency = Moneda de la cuenta
+PosplusAmountAccount = Monto en moneda de la cuenta
+PosplusAmountSession = Monto en moneda del cliente
+PosplusPaidPartial = Pago parcial registrado
+PosplusPayThisMode = Pagar con este modo
+PosplusLocalCurrency = Moneda local
+PosplusSessionCurrency = Moneda del cliente
+PosplusDelayed = Aplazado
+PosplusDelayedDesc = Venta a crédito (pago diferido)
+
+# TakePOS button controls
+DESCUENTO_FACTURA = Descuento de factura
+DESCUENTO_LINEA = Descuento de línea
+MODIFICAR_PRECIO = Modificar precio
+VENTA_DIVIDIDA = Venta dividida
+PRODUCTO_LIBRE = Producto texto libre
+
+# Errors
+PosplusErrorNoInvoice = No hay ninguna venta seleccionada en esta terminal
+PosplusErrorNoTerminal = No hay ninguna terminal TakePOS abierta en la sesión
+PosplusErrorBankCurrency = La cuenta bancaria está en %s y la factura en %s: solo se puede cobrar en la moneda principal o en la moneda de la factura
+PosplusErrorActionDisabled = Esta acción está desactivada en la configuración de POSPlus
+PosplusErrorInvalidToken = Token de seguridad inválido o vencido. Recargue el TPV.
+PosplusCashByCurrency = Efectivo por moneda
+PosplusCashBox = Caja
+PosplusCashExpected = Debe haber en caja
+PosplusModeNoRate = No hay tasa de cambio de %s: los modos en esa moneda no están disponibles hasta cargar la tasa del día (Multimoneda).
+PosplusModeMultiCurrency = La terminal tiene cuentas en varias monedas extranjeras (%s): una factura solo admite una. Elija la moneda del cliente en el TPV para habilitar sus modos de pago.
+
+# Ticket
+PosplusTicketCustomerId = RIF/CI
+PosplusTicketCustomerName = R.S.
+PosplusTicketPhone = Tlf
+PosplusTicketOperator = Operador
+PosplusTicketCashDesk = Caja
+PosplusTicketCashSale = Venta de contado
+PosplusTicketCreditSale = Venta a crédito
+PosplusTicketInvoice = Factura
+PosplusTicketDate = Fecha
+PosplusTicketHour = Hora
+PosplusTicketDiscount = Desc.
+PosplusTicketSubtotal = Subttl
+PosplusTicketExempt = Exento
+PosplusTicketBase = BI
+PosplusTicketVat = IVA
+PosplusTicketTotal = Total
+
+# Cash count by shift (arqueo)
+PosplusCashCount = Arqueo de caja
+PosplusCashCountHistory = Arqueos de caja POS
+PosplusCashCountSection = Arqueo de caja por turnos
+POSPLUS_CASHCOUNT = Arqueo de caja por turnos (apertura, retiros/ingresos, reportes X y Z)
+POSPLUS_CASHCOUNT_BLIND = Arqueo ciego (el cajero no ve los montos esperados)
+PosplusDenominations = Denominaciones a contar en %s
+PosplusDenominationsHelp = Billetes y monedas separados por comas, de mayor a menor (ej.: 100,50,20,10,5,1). Vacío = valores por defecto.
+PosplusCashOpenTitle = Apertura de turno
+PosplusCashOpenHelp = Indique el fondo inicial de cada caja. Debe abrir el turno para poder cobrar.
+PosplusCashOpenButton = Abrir caja
+PosplusCashNoBoxes = La terminal no tiene ninguna cuenta de tipo Caja configurada para sus modos de pago.
+PosplusCashSessionOpened = Turno %s abierto
+PosplusCashSessionAlreadyOpen = Ya hay un turno abierto en esta caja (%s)
+PosplusCashSessionNotOpen = El turno ya no está abierto
+PosplusCashNoOpenSession = No hay un turno abierto en esta caja: haga la apertura (Arqueo de caja) antes de cobrar.
+PosplusCashDayClosed = El día ya está cerrado (reporte Z) para esta caja.
+PosplusCashLastTicket = Ver el último arqueo
+PosplusCashOpenedBy = Abierto el %s por %s
+PosplusCashMovementTitle = Retiro / Ingreso
+PosplusCashMovementType = Tipo
+PosplusCashIn = Ingreso de efectivo
+PosplusCashOut = Retiro de efectivo
+PosplusCashReason = Motivo
+PosplusCashMovementRequired = Indique un monto mayor que cero y el motivo.
+PosplusCashMovementSaved = Movimiento de caja registrado
+PosplusCashMovements = Retiros e ingresos
+PosplusCashCountX = Arqueo X (cerrar turno)
+PosplusCashCountZ = Cierre Z (cerrar el día)
+PosplusCashCloseX = Cerrar turno
+PosplusCashCloseZ = Cerrar el día
+PosplusCashConfirmClose = ¿Confirma el cierre? Los montos contados no se podrán modificar.
+PosplusCashBlindHelp = Arqueo ciego: cuente el efectivo y declare los demás medios de pago. Las diferencias se muestran al cerrar.
+PosplusCashZHelp = El cierre Z cierra el día de esta caja: después no se podrá cobrar hasta mañana.
+PosplusCashBack = Volver
+PosplusCashDaySales = Ventas del día
+PosplusCashReportX = Arqueo de caja - Reporte X
+PosplusCashReportZ = Cierre del día - Reporte Z
+PosplusCashReportPartial = Arqueo de caja (turno abierto)
+PosplusCashOpened = Apertura
+PosplusCashClosed = Cierre
+PosplusCashFloat = Fondo inicial
+PosplusCashCollections = Cobros
+PosplusCashRefunds = Devoluciones
+PosplusCashExpectedShort = Esperado
+PosplusCashCounted = Contado
+PosplusCashDeclared = Declarado
+PosplusCashOther = Otros / monedas
+PosplusCashSurplus = Sobrante
+PosplusCashShortage = Faltante
+PosplusCashBalanced = Cuadrado
+PosplusCashTotalDifference = Diferencias
+PosplusCashSignCashier = Cajero
+PosplusCashSignSupervisor = Supervisor
+PosplusCashStatusOpen = Abierto
+PosplusCashStatusX = Cerrado (X)
+PosplusCashStatusZ = Cierre del día (Z)
+Permission95000011 = Ver el historial de arqueos de caja POS y sus diferencias
+Permission95000012 = Hacer el cierre del día del POS (reporte Z)
+PosplusCashClosedBy = Cerrado por
+PosplusCashDaySalesIn = Ventas en %s
+PosplusCollectedByCurrency = Cobrado por moneda

@@ -1,0 +1,192 @@
+# Translation file
+
+#
+# Generic
+#
+
+# Module label 'ModulePOSPlusName'
+ModulePOSPlusName = POSPlus
+# Module description 'ModulePOSPlusDesc'
+ModulePOSPlusDesc = Extensions for TakePOS: payments in several currencies and cash boxes, fiscal-style ticket and cash count by shift (reports X and Z)
+
+#
+# Admin page
+#
+POSPlusSetup = POSPlus setup
+Settings = Settings
+POSPlusSetupPage = POSPlus setup page
+NewSection=New section
+POSPLUS_MYPARAM1 = My param 1
+POSPLUS_MYPARAM1Tooltip = My param 1 tooltip
+POSPLUS_MYPARAM2=My param 2
+POSPLUS_MYPARAM2Tooltip=My param 2 tooltip
+
+
+#
+# About page
+#
+About = About
+POSPlusAbout = About POSPlus
+POSPlusAboutPage = POSPlus about page
+
+#
+# Sample page
+#
+POSPlusArea = Home POSPlus
+MyPageName = My page name
+
+#
+# Sample widget
+#
+MyWidget = My widget
+MyWidgetDescription = My widget description
+
+#
+# Cash close (TakePOS)
+#
+PosplusCashClose = Cash close
+PosplusCashCloseDate = Date
+PosplusInvoicesIssued = Invoices issued
+PosplusTotalInvoiced = Total invoiced
+PosplusBase = Tax base
+PosplusVAT = VAT
+PosplusPaymentsBreakdown = Payments breakdown
+PosplusPaymentMode = Payment mode
+PosplusInflows = Inflows
+PosplusOutflows = Outflows
+PosplusNbPayments = Nb. payments
+PosplusNoData = No data for this terminal/date
+PosplusCaisseClose = Cash close report
+PosplusTerminal = Terminal
+Print = Print
+PosplusCurrency = Currency
+PosplusAmountForeign = Amount in currency
+PosplusRate = Rate
+PosplusAmountLocal = Amount in local currency
+PosplusPendingTitle = Pending to collect
+PosplusPendingInvoice = Invoice
+PosplusPendingCustomer = Customer
+PosplusPendingAmount = Pending amount
+PosplusReturnsTitle = Returns
+PosplusReturnsRef = Credit note
+PosplusReturnsOrigin = Source invoice
+PosplusReturnsCustomer = Customer
+PosplusReturnsAmount = Amount
+PosplusNetTotal = Net total
+
+#
+# Pay (TakePOS) - payplus
+#
+PosplusPayButton = Pay
+PosplusPaymentReceived = Amount received
+PosplusEquivalent = Equivalent in main currency
+PosplusRegisterPayment = Record payment
+PosplusBankCurrency = Bank account currency
+PosplusAmountAccount = Amount in account currency
+PosplusAmountSession = Amount in customer currency
+PosplusPaidPartial = Partial payment recorded
+PosplusPayThisMode = Pay with this mode
+PosplusLocalCurrency = Local currency
+PosplusSessionCurrency = Customer currency
+PosplusDelayed = Deferred
+PosplusDelayedDesc = Credit sale (deferred payment)
+
+# TakePOS button controls
+DESCUENTO_FACTURA = Invoice discount
+DESCUENTO_LINEA = Line discount
+MODIFICAR_PRECIO = Modify price
+VENTA_DIVIDIDA = Split sale
+PRODUCTO_LIBRE = Free text product
+
+# Errors
+PosplusErrorNoInvoice = No sale is selected on this terminal
+PosplusErrorNoTerminal = No TakePOS terminal is open in the session
+PosplusErrorBankCurrency = The bank account is in %s and the invoice in %s: payment is only possible in the main currency or in the invoice currency
+PosplusErrorActionDisabled = This action is disabled in the POSPlus setup
+PosplusErrorInvalidToken = Invalid or expired security token. Reload the POS.
+PosplusCashByCurrency = Cash per currency
+PosplusCashBox = Cash box
+PosplusCashExpected = Expected in the box
+PosplusModeNoRate = There is no exchange rate for %s: the payment modes in that currency are not available until the rate of the day is loaded (Multicurrency).
+PosplusModeMultiCurrency = The terminal has accounts in several foreign currencies (%s): an invoice only accepts one. Choose the customer currency in the POS to enable its payment modes.
+
+# Ticket
+PosplusTicketCustomerId = Tax ID
+PosplusTicketCustomerName = Name
+PosplusTicketPhone = Phone
+PosplusTicketOperator = Operator
+PosplusTicketCashDesk = Cash desk
+PosplusTicketCashSale = Cash sale
+PosplusTicketCreditSale = Credit sale
+PosplusTicketInvoice = Invoice
+PosplusTicketDate = Date
+PosplusTicketHour = Time
+PosplusTicketDiscount = Disc.
+PosplusTicketSubtotal = Subtotal
+PosplusTicketExempt = Exempt
+PosplusTicketBase = Base
+PosplusTicketVat = VAT
+PosplusTicketTotal = Total
+
+# Cash count by shift
+PosplusCashCount = Cash count
+PosplusCashCountHistory = POS cash counts
+PosplusCashCountSection = Cash count by shift
+POSPLUS_CASHCOUNT = Cash count by shift (opening, cash in/out, reports X and Z)
+POSPLUS_CASHCOUNT_BLIND = Blind cash count (the cashier does not see the expected amounts)
+PosplusDenominations = Denominations to count in %s
+PosplusDenominationsHelp = Bills and coins separated by commas, highest first (e.g. 100,50,20,10,5,1). Empty = default values.
+PosplusCashOpenTitle = Opening of the shift
+PosplusCashOpenHelp = Enter the float of each cash box. The shift must be open to take payments.
+PosplusCashOpenButton = Open the cash box
+PosplusCashNoBoxes = The terminal has no bank account of type Cash configured for its payment modes.
+PosplusCashSessionOpened = Shift %s opened
+PosplusCashSessionAlreadyOpen = A shift is already open on this cash desk (%s)
+PosplusCashSessionNotOpen = The shift is no longer open
+PosplusCashNoOpenSession = There is no open shift on this cash desk: do the opening (Cash count) before taking payments.
+PosplusCashDayClosed = The day is already closed (report Z) for this cash desk.
+PosplusCashLastTicket = See the last cash count
+PosplusCashOpenedBy = Opened on %s by %s
+PosplusCashMovementTitle = Cash out / in
+PosplusCashMovementType = Type
+PosplusCashIn = Cash in
+PosplusCashOut = Cash withdrawal
+PosplusCashReason = Reason
+PosplusCashMovementRequired = Enter an amount greater than zero and the reason.
+PosplusCashMovementSaved = Cash movement recorded
+PosplusCashMovements = Cash in and withdrawals
+PosplusCashCountX = Count X (close the shift)
+PosplusCashCountZ = Close Z (close the day)
+PosplusCashCloseX = Close the shift
+PosplusCashCloseZ = Close the day
+PosplusCashConfirmClose = Confirm the close? The counted amounts can not be changed afterwards.
+PosplusCashBlindHelp = Blind count: count the cash and declare the other payment modes. The differences are shown at the close.
+PosplusCashZHelp = The close Z closes the day of this cash desk: no payment can be taken until tomorrow.
+PosplusCashBack = Back
+PosplusCashDaySales = Sales of the day
+PosplusCashReportX = Cash count - Report X
+PosplusCashReportZ = Close of the day - Report Z
+PosplusCashReportPartial = Cash count (open shift)
+PosplusCashOpened = Opening
+PosplusCashClosed = Close
+PosplusCashFloat = Float
+PosplusCashCollections = Collections
+PosplusCashRefunds = Refunds
+PosplusCashExpectedShort = Expected
+PosplusCashCounted = Counted
+PosplusCashDeclared = Declared
+PosplusCashOther = Other / coins
+PosplusCashSurplus = Surplus
+PosplusCashShortage = Shortage
+PosplusCashBalanced = Balanced
+PosplusCashTotalDifference = Differences
+PosplusCashSignCashier = Cashier
+PosplusCashSignSupervisor = Supervisor
+PosplusCashStatusOpen = Open
+PosplusCashStatusX = Closed (X)
+PosplusCashStatusZ = Close of the day (Z)
+Permission95000011 = See the history of the POS cash counts and their differences
+Permission95000012 = Do the close of the day of the POS (report Z)
+PosplusCashClosedBy = Closed by
+PosplusCashDaySalesIn = Sales in %s
+PosplusCollectedByCurrency = Collected per currency
