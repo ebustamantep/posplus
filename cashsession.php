@@ -102,27 +102,16 @@ if ($terminal === '') {
 }
 
 /**
- * Read the counted denominations of a cash box from the form (qty_<account>_<index>
- * for each denomination of the currency, plus other_<account>).
+ * Read the amount of a cash box from the form (other_<account>). Stored as
+ * array('other' => amount), the format of the denominations of the session lines.
  *
- * @param int    $accountid Bank account id
- * @param string $currency  Currency
- * @return array<string,float> Map value => quantity, plus 'other' => amount
+ * @param int $accountid Bank account id
+ * @return array<string,float>
  */
-function posplus_read_denominations($accountid, $currency)
+function posplus_read_amount($accountid)
 {
-	$denoms = array();
-	foreach (PosplusCashSession::getDenominations($currency) as $idx => $value) {
-		$qty = (float) price2num(GETPOST('qty_'.$accountid.'_'.$idx, 'alpha'), 'MS');
-		if ($qty > 0) {
-			$denoms[(string) $value] = $qty;
-		}
-	}
-	$other = (float) price2num(GETPOST('other_'.$accountid, 'alpha'), 'MT');
-	if ($other != 0) {
-		$denoms['other'] = $other;
-	}
-	return $denoms;
+	$amount = (float) price2num(GETPOST('other_'.$accountid, 'alpha'), 'MT');
+	return ($amount != 0 ? array('other' => $amount) : array());
 }
 
 $session = new PosplusCashSession($db);
@@ -138,7 +127,7 @@ $messages = array();
 if ($action == 'open' && $_SERVER['REQUEST_METHOD'] == 'POST') {
 	$openings = array();
 	foreach (PosplusCashSession::getCashBoxes($db, $terminal) as $accountid => $box) {
-		$openings[$accountid] = posplus_read_denominations($accountid, $box['currency']);
+		$openings[$accountid] = posplus_read_amount($accountid);
 	}
 	if ($session->create($user, $terminal, $openings) > 0) {
 		$hasopen = true;
@@ -173,7 +162,7 @@ if ($action == 'close' && $_SERVER['REQUEST_METHOD'] == 'POST' && $hasopen) {
 	$declared = array('cash' => array(), 'modes' => array());
 	foreach ($session->computeLines() as $key => $l) {
 		if ($l['iscash']) {
-			$declared['cash'][$l['fk_account']] = posplus_read_denominations($l['fk_account'], $l['currency']);
+			$declared['cash'][$l['fk_account']] = posplus_read_amount($l['fk_account']);
 		} else {
 			$declared['modes'][$key] = (float) price2num(GETPOST('decl_'.md5($key), 'alpha'), 'MT');
 		}
@@ -198,37 +187,7 @@ if ($action == 'ticket') {
  */
 
 /**
- * Denomination grid of a cash box (quantity per bill/coin + other amount + live total).
- *
- * @param int                $accountid Bank account id
- * @param array{label:string,currency:string} $box Cash box
- * @param array<string,mixed> $prefill  Previous denominations
- * @return string
- */
-function posplus_denomination_grid($accountid, $box, $prefill = array())
-{
-	global $langs;
-
-	$cur = $box['currency'];
-	$out = '<div class="pp-box" data-account="'.((int) $accountid).'" data-currency="'.dol_escape_htmltag($cur).'">';
-	$out .= '<div class="pp-boxtitle">'.dol_escape_htmltag($box['label']).' <span class="pp-cur">'.dol_escape_htmltag($cur).'</span></div>';
-	$out .= '<table class="pp-denoms">';
-	foreach (PosplusCashSession::getDenominations($cur) as $idx => $value) {
-		$qty = (isset($prefill[(string) $value]) ? (float) $prefill[(string) $value] : '');
-		$out .= '<tr><td class="pp-dval">'.dol_escape_htmltag(posplus_ticket_amount($value, $cur)).'</td>';
-		$out .= '<td>x <input type="number" min="0" step="1" inputmode="numeric" class="pp-qty" data-value="'.((float) $value).'" name="qty_'.((int) $accountid).'_'.$idx.'" value="'.dol_escape_htmltag((string) $qty).'"></td>';
-		$out .= '<td class="pp-sub"></td></tr>';
-	}
-	$other = (isset($prefill['other']) ? (float) $prefill['other'] : '');
-	$out .= '<tr><td class="pp-dval">'.$langs->trans('PosplusCashOther').'</td><td colspan="2"><input type="text" inputmode="decimal" class="pp-other" name="other_'.((int) $accountid).'" value="'.dol_escape_htmltag((string) $other).'" placeholder="0,00"></td></tr>';
-	$out .= '</table>';
-	$out .= '<div class="pp-total">'.$langs->trans('Total').': <span class="pp-boxtotal">0,00</span> '.dol_escape_htmltag($cur).'</div>';
-	$out .= '</div>';
-	return $out;
-}
-
-/**
- * Amount input of a cash box (opening float: a single amount, no denominations).
+ * Amount input of a cash box (float at the opening, cash counted at the close).
  *
  * @param int                $accountid Bank account id
  * @param array{label:string,currency:string} $box Cash box
@@ -259,13 +218,8 @@ h2 { font-size: 1.25em; margin: 0 0 10px 0; }
 .pp-box { border: 1px solid #ddd; border-radius: 6px; padding: 8px 10px; flex: 1 1 300px; background: #fafafa; }
 .pp-boxtitle { font-weight: bold; margin-bottom: 6px; }
 .pp-cur { font-weight: normal; opacity: 0.7; }
-.pp-denoms td { padding: 2px 4px; }
-.pp-dval { text-align: right; white-space: nowrap; }
-.pp-qty { width: 70px; text-align: right; padding: 4px; font-size: 1em; }
 .pp-other { width: 120px; text-align: right; padding: 4px; font-size: 1em; }
 .pp-amount { width: 180px; text-align: right; padding: 8px; font-size: 1.3em; }
-.pp-sub { text-align: right; opacity: 0.7; white-space: nowrap; }
-.pp-total { margin-top: 6px; font-weight: bold; text-align: right; }
 .pp-actions { margin-top: 12px; display: flex; flex-wrap: wrap; gap: 8px; }
 .pp-actions button, .pp-actions a.pp-btn { font-size: 1em; padding: 10px 14px; cursor: pointer; border: 1px solid #bbb; border-radius: 4px; background: #f2f2f2; color: #222; text-decoration: none; }
 .pp-actions .pp-primary { background: #28a745; border-color: #1e7e34; color: #fff; }
@@ -355,7 +309,7 @@ if ($action == 'ticket') {
 	print '<div class="pp-boxes">';
 	foreach ($lines as $key => $l) {
 		if ($l['iscash']) {
-			print posplus_denomination_grid($l['fk_account'], array('label' => $l['accountlabel'], 'currency' => $l['currency']));
+			print posplus_amount_box($l['fk_account'], array('label' => $l['accountlabel'], 'currency' => $l['currency']));
 		}
 	}
 	print '</div>';
@@ -436,38 +390,6 @@ if ($action == 'ticket') {
 		print '</table>';
 	}
 }
-
-// Live totals of the denomination grids
-print '<script>
-(function() {
-	function parseAmount(str) {
-		str = String(str || "").replace(/\s/g, "");
-		if (str.indexOf(",") > -1 && str.indexOf(".") > -1) { str = str.replace(/\./g, "").replace(",", "."); }
-		else if (str.indexOf(",") > -1) { str = str.replace(",", "."); }
-		var v = parseFloat(str); return isNaN(v) ? 0 : v;
-	}
-	function fmt(v) {
-		var parts = Number(v).toFixed(2).split(".");
-		return parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ".") + "," + parts[1];
-	}
-	function refresh(box) {
-		var total = 0;
-		box.querySelectorAll(".pp-qty").forEach(function(inp) {
-			var sub = (parseFloat(inp.value) || 0) * parseFloat(inp.getAttribute("data-value"));
-			total += sub;
-			var cell = inp.parentNode.nextElementSibling;
-			if (cell) { cell.textContent = sub ? fmt(sub) : ""; }
-		});
-		box.querySelectorAll(".pp-other").forEach(function(inp) { total += parseAmount(inp.value); });
-		var t = box.querySelector(".pp-boxtotal");
-		if (t) { t.textContent = fmt(total); }
-	}
-	document.querySelectorAll(".pp-box").forEach(function(box) {
-		box.addEventListener("input", function() { refresh(box); });
-		refresh(box);
-	});
-})();
-</script>';
 
 print '</div></body></html>';
 $db->close();

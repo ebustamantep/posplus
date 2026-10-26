@@ -14,16 +14,15 @@ Requiere Dolibarr 23 o superior (probado en 24.0.2) y PHP 7.2 o superior.
 
 ### Arqueo de caja por turnos (nuevo)
 
-- **Apertura de turno** con el fondo de cada caja de la terminal (USD, Bs...) contado por denominación. Sin turno abierto no se puede cobrar. Sustituye a la apertura nativa de TakePOS (de una sola moneda) y se abre sola al entrar al POS si no hay turno.
+- **Apertura de turno** con el fondo de cada caja de la terminal (USD, Bs...), un monto por caja. Sin turno abierto no se puede cobrar. Sustituye a la apertura nativa de TakePOS (de una sola moneda) y se abre sola al entrar al POS si no hay turno.
 - **Retiros e ingresos de efectivo** desde el POS, con motivo; se registran como movimiento de la caja y entran en el cálculo.
-- **Arqueo X** (cierra el turno) y **cierre Z** (cierra el día): por cada caja, fondo + cobros − devoluciones + ingresos − retiros = esperado, frente a lo contado por denominación; por cada medio no efectivo (tarjeta, Pago Móvil, punto...), esperado frente a declarado. Diferencia (sobrante / faltante / cuadrado) por línea y por moneda.
+- **Arqueo X** (cierra el turno) y **cierre Z** (cierra el día): por cada caja, fondo + cobros − devoluciones + ingresos − retiros = esperado, frente a lo contado (un monto por caja); por cada medio no efectivo (tarjeta, Pago Móvil, punto...), esperado frente a declarado. Diferencia (sobrante / faltante / cuadrado) por línea y por moneda.
 - **Arqueo ciego** (opcional, activo por defecto): el cajero no ve lo esperado; las diferencias se muestran al cerrar.
 - Cada turno cuenta desde el cierre del anterior hasta su cierre, así ningún pago se pierde ni se cuenta dos veces. Solo cuentan los pagos de las ventas y devoluciones de la terminal.
 - Las **ventas del día del cierre Z** se separan por moneda de la factura (USD en $, VEF en Bs), cada una con sus devoluciones y su neto.
 - El **cierre Z** valida el control de caja nativo del día con el **día local**, que es el que TakePOS usa para bloquear los cobros (el core lo guardaba en UTC y el bloqueo no coincidía con el día). Después del Z no se puede abrir otro turno ese día.
-- **Ticket de 80 mm** del arqueo con el detalle por caja y medio, las denominaciones, los movimientos, las diferencias, las ventas del día (en el Z) y firmas de cajero y supervisor.
+- **Ticket de 80 mm** del arqueo con el detalle por caja y medio, los movimientos, las diferencias, las ventas del día (en el Z) y firmas de cajero y supervisor.
 - **Historial** en Bancos/Cajas → *Arqueos de caja POS*: filtros por caja, fecha y estado, diferencias por moneda, ficha y reimpresión.
-- Denominaciones configurables por moneda, con valores por defecto para USD, EUR y VEF/VES.
 - Tablas nuevas `llx_posplus_cashsession`, `llx_posplus_cashsession_line` y `llx_posplus_cashmovement` (MySQL y PostgreSQL).
 
 ### Cobro (botón Pagar)

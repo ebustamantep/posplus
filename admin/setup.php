@@ -101,25 +101,6 @@ $formSetup->newItem('PRODUCTO_LIBRE')->setAsYesNo();	// Show/hide the free zone 
 $formSetup->newItem('PosplusCashCountSection')->setAsTitle();
 $formSetup->newItem('POSPLUS_CASHCOUNT')->setAsYesNo();
 $formSetup->newItem('POSPLUS_CASHCOUNT_BLIND')->setAsYesNo();
-// Denominations (bills and coins) to count, for the main currency and each currency of
-// the multicurrency module.
-$currencies = array($conf->currency => $conf->currency);
-if (isModEnabled('multicurrency')) {
-	$resql = $db->query("SELECT code FROM ".MAIN_DB_PREFIX."multicurrency WHERE entity IN (".getEntity('multicurrency').") ORDER BY code");
-	if ($resql) {
-		while ($obj = $db->fetch_object($resql)) {
-			$currencies[$obj->code] = $obj->code;
-		}
-	}
-}
-dol_include_once('/posplus/class/posplussession.class.php');
-foreach ($currencies as $currencycode) {
-	$item = $formSetup->newItem('POSPLUS_DENOM_'.$currencycode);
-	$item->nameText = $langs->trans('PosplusDenominations', $currencycode);
-	$item->helpText = $langs->trans('PosplusDenominationsHelp');
-	$item->fieldAttr['placeholder'] = implode(',', PosplusCashSession::getDenominations($currencycode));
-	$item->cssClass = 'minwidth300';
-}
 
 $setupnotempty = count($formSetup->items);
 

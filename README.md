@@ -6,7 +6,7 @@ Extensions for the TakePOS point of sale:
 
 - **Payment popup** for payments in several currencies and cash boxes (e.g. cash in USD and cash in Bs), mixed in the same sale, with the conversion done by the server at the rate of the invoice.
 - **Fiscal-style ticket** for 80 mm printers (company and customer tax ids, tax marks, tax breakdown, payments in the currency of each box).
-- **Cash count by shift**: opening with the float of each cash box, cash in / withdrawals, blind count by denominations, report X (close of the shift) and report Z (close of the day, locks the day), 80 mm ticket and history.
+- **Cash count by shift**: opening with the float of each cash box, cash in / withdrawals, blind count (one amount per cash box), report X (close of the shift) and report Z (close of the day, locks the day), 80 mm ticket and history.
 - **Daily cash close report** with returns (EasyBack), payments per mode and account, cash per currency and pending invoices.
 - Server-side control of the TakePOS buttons (price, discounts, free zone).
 

@@ -264,33 +264,6 @@ class PosplusCashSession
 	}
 
 	/**
-	 * Denominations (bills and coins) to count for a currency, from the setup
-	 * POSPLUS_DENOM_<CURRENCY> (comma separated values, highest first).
-	 *
-	 * @param string $currency Currency code
-	 * @return float[]
-	 */
-	public static function getDenominations($currency)
-	{
-		$defaults = array(
-			'USD' => '100,50,20,10,5,2,1',
-			'EUR' => '500,200,100,50,20,10,5,2,1,0.5,0.2,0.1',
-			'VEF' => '500,200,100,50,20,10,5,1,0.5',
-			'VES' => '500,200,100,50,20,10,5,1,0.5',
-		);
-		$setup = getDolGlobalString('POSPLUS_DENOM_'.$currency, isset($defaults[$currency]) ? $defaults[$currency] : '');
-		$list = array();
-		foreach (explode(',', str_replace(';', ',', $setup)) as $value) {
-			$value = (float) price2num(trim($value));
-			if ($value > 0) {
-				$list[(string) $value] = $value;
-			}
-		}
-		rsort($list);
-		return $list;
-	}
-
-	/**
 	 * Total of a count by denominations.
 	 *
 	 * @param array<string,mixed> $denoms Map value => quantity, plus 'other' => free amount
@@ -728,7 +701,7 @@ class PosplusCashSession
 
 	/**
 	 * HTML of the cash count ticket (80 mm): per cash box the float, collections, refunds,
-	 * cash in/out, expected, counted (with the denominations) and the difference; per non
+	 * cash in/out, expected, counted and the difference; per non
 	 * cash mode the expected, declared and difference; the movements; for a report Z the
 	 * sales summary of the day; and the signatures.
 	 *
@@ -803,17 +776,6 @@ class PosplusCashSession
 			$out .= $row('<b>'.$langs->trans('PosplusCashExpectedShort').'</b>', '<b>'.$m($l['expected']).'</b>');
 			if ($l['declared'] !== null && isset($l['declared'])) {
 				$out .= $row($langs->trans($l['iscash'] ? 'PosplusCashCounted' : 'PosplusCashDeclared'), $m($l['declared']));
-				if ($l['iscash'] && !empty($l['denominations'])) {
-					foreach ($l['denominations'] as $value => $qty) {
-						if ($value === 'other') {
-							if ((float) $qty != 0) {
-								$out .= $row('<span class="small">&nbsp;&nbsp;'.$langs->trans('PosplusCashOther').'</span>', '<span class="small">'.$m($qty).'</span>');
-							}
-						} elseif ((float) $qty > 0) {
-							$out .= $row('<span class="small">&nbsp;&nbsp;'.((float) $qty).' x '.$m($value).'</span>', '<span class="small">'.$m((float) $value * (float) $qty).'</span>');
-						}
-					}
-				}
 				$label = ($l['difference'] > 0 ? 'PosplusCashSurplus' : ($l['difference'] < 0 ? 'PosplusCashShortage' : 'PosplusCashBalanced'));
 				$out .= $row('<b class="upper">'.$langs->trans($label).'</b>', '<b>'.$m($l['difference']).'</b>', 'total');
 				$totaldiff[$cur] = (isset($totaldiff[$cur]) ? $totaldiff[$cur] : 0) + $l['difference'];
