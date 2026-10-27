@@ -294,13 +294,29 @@ class PosplusCashSession
 	{
 		global $conf, $langs;
 
+		$this->db->begin();
+
+		// Two openings at the same time (double click, two tabs, two cashiers) must not create two
+		// open shifts on the terminal: the openings are serialized by locking a row that always
+		// exists (the constant of the cash count, created at the module activation), then the
+		// checks are done inside the transaction. Portable MySQL / PostgreSQL (no gap lock needed).
+		$sql = "SELECT rowid FROM ".MAIN_DB_PREFIX."const";
+		$sql .= " WHERE name = 'POSPLUS_CASHCOUNT' AND entity IN (0, ".((int) $conf->entity).")";
+		$sql .= " FOR UPDATE";
+		if (!$this->db->query($sql)) {
+			$this->error = $this->db->lasterror();
+			$this->db->rollback();
+			return -1;
+		}
 		if (posplus_get_closed_cashcontrol($this->db, $terminal)) {
 			$this->error = $langs->transnoentities('PosplusCashDayClosed');
+			$this->db->rollback();
 			return -1;
 		}
 		$tmp = new self($this->db);
-		if ($tmp->fetchOpen($terminal) > 0) {
-			$this->error = $langs->transnoentities('PosplusCashSessionAlreadyOpen', $tmp->ref);
+		if ($tmp->fetchOpen($terminal) != 0) {
+			$this->error = ($tmp->id > 0 ? $langs->transnoentities('PosplusCashSessionAlreadyOpen', $tmp->ref) : $tmp->error);
+			$this->db->rollback();
 			return -1;
 		}
 
@@ -316,8 +332,6 @@ class PosplusCashSession
 			$datestart = $this->db->jdate($obj->lastclose);
 		}
 
-		$this->db->begin();
-
 		$sql = "INSERT INTO ".MAIN_DB_PREFIX."posplus_cashsession (entity, terminal, status, date_open, fk_user_open, date_start)";
 		$sql .= " VALUES (".((int) $conf->entity).", '".$this->db->escape($terminal)."', ".self::STATUS_OPEN.",";
 		$sql .= " '".$this->db->idate($now)."', ".((int) $user->id).", '".$this->db->idate($datestart)."')";
@@ -328,7 +342,11 @@ class PosplusCashSession
 		}
 		$this->id = (int) $this->db->last_insert_id(MAIN_DB_PREFIX."posplus_cashsession");
 		$this->ref = 'T'.$terminal.'-'.posplus_print_date($now, '%Y%m%d').'-'.$this->id;
-		$this->db->query("UPDATE ".MAIN_DB_PREFIX."posplus_cashsession SET ref = '".$this->db->escape($this->ref)."' WHERE rowid = ".((int) $this->id));
+		if (!$this->db->query("UPDATE ".MAIN_DB_PREFIX."posplus_cashsession SET ref = '".$this->db->escape($this->ref)."' WHERE rowid = ".((int) $this->id))) {
+			$this->error = $this->db->lasterror();
+			$this->db->rollback();
+			return -1;
+		}
 
 		foreach (self::getCashBoxes($this->db, $terminal) as $accountid => $box) {
 			$denoms = (isset($openings[$accountid]) && is_array($openings[$accountid]) ? $openings[$accountid] : array());
@@ -774,7 +792,7 @@ class PosplusCashSession
 				}
 			}
 			$out .= $row('<b>'.$langs->trans('PosplusCashExpectedShort').'</b>', '<b>'.$m($l['expected']).'</b>');
-			if ($l['declared'] !== null && isset($l['declared'])) {
+			if (isset($l['declared'])) {	// Not set (open shift, computed lines) or null: not counted yet
 				$out .= $row($langs->trans($l['iscash'] ? 'PosplusCashCounted' : 'PosplusCashDeclared'), $m($l['declared']));
 				$label = ($l['difference'] > 0 ? 'PosplusCashSurplus' : ($l['difference'] < 0 ? 'PosplusCashShortage' : 'PosplusCashBalanced'));
 				$out .= $row('<b class="upper">'.$langs->trans($label).'</b>', '<b>'.$m($l['difference']).'</b>', 'total');

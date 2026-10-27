@@ -256,7 +256,8 @@ function zipDir($folder, &$zip, $root = "")
 			continue;
 		} //skip . ..
 		$src = $folder . '/' . $f;
-		$dst = substr($f->getPathname(), strlen($root));
+		// Zip entries always with "/" (on Windows the path has "\", which breaks the unzip on Linux)
+		$dst = str_replace('\\', '/', substr($f->getPathname(), strlen($root)));
 		if ($f->isDir()) {
 			if ($zip->addEmptyDir($dst)) {
 				if (zipDir($src, $zip, $root)) {

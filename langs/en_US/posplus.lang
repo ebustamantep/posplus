@@ -88,6 +88,9 @@ PosplusPaidPartial = Partial payment recorded
 PosplusPayThisMode = Pay with this mode
 PosplusLocalCurrency = Local currency
 PosplusSessionCurrency = Customer currency
+PosplusInvoiceCurrency = Invoice currency
+PosplusRateOfInvoice = Rate of the invoice
+PosplusChangeToGive = Change to give back: %s. Continue?
 PosplusDelayed = Deferred
 PosplusDelayedDesc = Credit sale (deferred payment)
 
@@ -159,6 +162,7 @@ PosplusCashCloseX = Close the shift
 PosplusCashCloseZ = Close the day
 PosplusCashConfirmClose = Confirm the close? The counted amounts can not be changed afterwards.
 PosplusCashBlindHelp = Blind count: enter the cash counted in each box and declare the other payment modes. The differences are shown at the close.
+PosplusCashTicketBlindForbidden = Blind cash count: the detail of the open shift with the expected amounts can only be seen by a supervisor (permission to see the history of the cash counts) until the close.
 PosplusCashZHelp = The close Z closes the day of this cash desk: no payment can be taken until tomorrow.
 PosplusCashBack = Back
 PosplusCashDaySales = Sales of the day

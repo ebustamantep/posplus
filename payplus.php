@@ -120,19 +120,8 @@ if ($ret <= 0 || !posplus_invoice_is_accessible($invoice, $terminal)) {
 $invoicenotfound = (empty($invoice->id) || $invoice->id <= 0);
 $invoicecurrency = (!$invoicenotfound && $invoice->multicurrency_code ? $invoice->multicurrency_code : $conf->currency);
 
-// Determine the conversion rate for the customer currency (if any).
-$sessioncurrency = (!empty($_SESSION["takeposcustomercurrency"]) ? $_SESSION["takeposcustomercurrency"] : '');
-$multicurrencyrate = 0;
-if (isModEnabled('multicurrency') && $sessioncurrency != '' && $sessioncurrency != $conf->currency) {
-	$currencyrateobj = new MultiCurrency($db);
-	$currencyrateobj->fetch(0, $sessioncurrency);
-	if (isset($currencyrateobj->rate->rate) && (float) $currencyrateobj->rate->rate > 0) {
-		$multicurrencyrate = (float) $currencyrateobj->rate->rate;
-	}
-}
-
-// The invoice may carry its own multicurrency tx (foreign-per-main rate). Only used
-// for display: the server converts the amounts with the rate stored on the invoice.
+// Rate of the invoice (foreign per main): the one the server uses to convert the payments.
+// When the customer currency is chosen in the POS, TakePOS sets it on the invoice too.
 $invoicerate = (float) $invoice->multicurrency_tx;
 if ($invoicecurrency == $conf->currency) {
 	$invoicerate = 1;
@@ -201,8 +190,25 @@ if ($resql) {
 $remaintopay = 0;
 $totaltopay = 0;
 if (!$invoicenotfound) {
-	$remaintopay = $invoice->getRemainToPay();
-	$totaltopay = $invoice->total_ttc;
+	$remaintopay = (float) $invoice->getRemainToPay();
+	$totaltopay = (float) $invoice->total_ttc;
+}
+
+// Foreign currency of the invoice (e.g. VEF), with its remain to pay: the payment modes of a
+// box in that currency take the amount in that currency, converted with the invoice rate.
+$foreigncurrency = '';
+$remaintopaymc = 0;
+$totaltopaymc = 0;
+if (isModEnabled('multicurrency') && $invoicecurrency != $conf->currency && $invoicerate > 0) {
+	$foreigncurrency = $invoicecurrency;
+	if ($pending['currency'] !== '' || $invoicenotfound) {
+		// The invoice takes the currency at its first payment: amounts at the day rate
+		$remaintopaymc = (float) price2num($remaintopay * $invoicerate, 'MT');
+		$totaltopaymc = (float) price2num($totaltopay * $invoicerate, 'MT');
+	} else {
+		$remaintopaymc = (float) price2num($invoice->getRemainToPay(1), 'MT');
+		$totaltopaymc = (float) $invoice->multicurrency_total_ttc;
+	}
 }
 
 // Helper to format an amount in a currency (comma decimals, dot thousands).
@@ -224,26 +230,19 @@ function posplus_fmt_amount($amount, $currency_code)
 }
 
 $maincurrency = $conf->currency;
-$rowcount = count($arrayOfPaymentModes);
-
-// Multicurrency feature active only when a customer currency differs from the main currency.
-$multicurrencyactive = (isModEnabled('multicurrency') && $sessioncurrency != '' && $sessioncurrency != $maincurrency && $multicurrencyrate > 0);
 $showdelayed = getDolGlobalInt('TAKEPOS_DELAYED_PAYMENT');
 
-// Build the list of payment modes to inject in JS: code, account, currency and rate.
+// Build the list of payment modes to inject in JS: code, account and currency of the box
+// (the main one or the foreign currency of the invoice, the only ones allowed).
 $jsmodes = array();
 $i = 0;
 foreach ($arrayOfPaymentModes as $mode) {
 	$i++;
-	$cur = $mode['currency'];
-	// Only allowed foreign account: the invoice currency, converted with the invoice rate.
-	$rate = (($cur != $maincurrency && $invoicerate > 0) ? $invoicerate : 1);
 	$jsmodes[] = array(
 		'code' => $mode['code'],
 		'label' => posplus_payment_label($mode['code'], $mode['label']),
 		'accountid' => (int) $mode['accountid'],
-		'currency' => $cur,
-		'rate' => (float) $rate,
+		'currency' => $mode['currency'],
 		'disabled' => $mode['disabled'],
 	);
 }
@@ -264,7 +263,7 @@ if (getDolGlobalInt('POSPLUS_CASHCOUNT')) {
 
 // Debug helper (only when constant POSPLUS_DEBUG is set to 1)
 if (getDolGlobalInt('POSPLUS_DEBUG')) {
-	print '<!-- DEBUG payplus: terminal='.dol_escape_htmltag($terminal).' sessionterm='.dol_escape_htmltag(isset($_SESSION['takeposterminal']) ? $_SESSION['takeposterminal'] : 'NULL').' rowcount='.$rowcount.' bank_enabled='.(isModEnabled('bank') ? '1' : '0').' c_paiement_entity='.dol_escape_htmltag(getEntity('c_paiement')).' multicurrencyactive='.($multicurrencyactive ? '1' : '0').' sessioncurrency='.dol_escape_htmltag($sessioncurrency).' delayed='.($showdelayed ? '1' : '0').' -->';
+	print '<!-- DEBUG payplus: terminal='.dol_escape_htmltag($terminal).' sessionterm='.dol_escape_htmltag(isset($_SESSION['takeposterminal']) ? $_SESSION['takeposterminal'] : 'NULL').' rowcount='.$rowcount.' bank_enabled='.(isModEnabled('bank') ? '1' : '0').' c_paiement_entity='.dol_escape_htmltag(getEntity('c_paiement')).' foreigncurrency='.dol_escape_htmltag($foreigncurrency).' invoicerate='.$invoicerate.' delayed='.($showdelayed ? '1' : '0').' -->';
 }
 ?>
 <!DOCTYPE html>
@@ -288,6 +287,7 @@ body { background-color: #fff; padding: 10px; font-size: 14px; font-family: Aria
 .payplus-btn-close { margin-top: 12px; }
 .payplus-note { font-size: 0.9em; opacity: 0.8; margin-top: 6px; }
 .payplus-grid .btn-mode-off { cursor: not-allowed; opacity: 0.45; }
+.payplus-grid .btn-amount { display: block; font-size: 0.85em; font-weight: bold; margin-top: 2px; }
 .payplus-warning { font-size: 0.9em; color: #8a5300; background-color: #fff4e0; border: 1px solid #f0c36d; border-radius: 4px; padding: 6px 8px; margin-bottom: 8px; }
 </style>
 <script type="text/javascript" src="<?php echo DOL_URL_ROOT; ?>/includes/jquery/js/jquery.js"></script>
@@ -300,38 +300,39 @@ if ($invoicenotfound) {
 	print '<div class="payplus-remain error">'.$langs->trans('PosplusErrorNoInvoice').'</div>';
 }
 
-// Total header (main currency + customer currency equivalent, like pay.php)
+// Total header (main currency + invoice foreign currency)
 print '<div class="payplus-total">'.$langs->trans('TotalTTC').': <span id="posplus_total_main">'.posplus_fmt_amount($totaltopay, $maincurrency).'</span>';
-if ($multicurrencyactive) {
-	print ' &nbsp; <span class="payplus-eq">(<span id="posplus_total_ses">'.posplus_fmt_amount($totaltopay * $multicurrencyrate, $sessioncurrency).'</span>)</span>';
+if ($foreigncurrency) {
+	print ' &nbsp; <span class="payplus-eq">(<span id="posplus_total_mc">'.posplus_fmt_amount($totaltopaymc, $foreigncurrency).'</span>)</span>';
 }
 print '</div>';
 
 // Remain to pay (updated dynamically after each partial payment)
 print '<div class="payplus-remain">'.$langs->trans('RemainToPay').': <span id="posplus_remain_main">'.posplus_fmt_amount($remaintopay, $maincurrency).'</span>';
-if ($multicurrencyactive) {
-	print ' &nbsp; <span class="payplus-eq">(<span id="posplus_remain_ses">'.posplus_fmt_amount($remaintopay * $multicurrencyrate, $sessioncurrency).'</span>)</span>';
+if ($foreigncurrency) {
+	print ' &nbsp; <span class="payplus-eq">(<span id="posplus_remain_mc">'.posplus_fmt_amount($remaintopaymc, $foreigncurrency).'</span>)</span>';
 }
 print '</div>';
 
-// Global amount inputs (local + customer session currency)
+// Amount inputs: main currency and foreign currency of the invoice. Each payment mode takes
+// the amount of the input of the currency of its box.
 print '<div class="payplus-amounts">';
 print '<div class="fields">';
-print '<div class="field"><label>'.$langs->trans('PosplusLocalCurrency').' ('.$maincurrency.')</label>';
-print '<input type="text" id="posplus_local" class="posplus-local" value="'.posplus_fmt_amount($remaintopay, '').'">';
+print '<div class="field"><label>'.$langs->trans('PosplusLocalCurrency').' ('.dol_escape_htmltag($maincurrency).')</label>';
+print '<input type="text" inputmode="decimal" autocomplete="off" id="posplus_local" class="posplus-local" value="'.posplus_fmt_amount($remaintopay, '').'">';
 print '</div>';
-if ($multicurrencyactive) {
-	print '<div class="field"><label>'.$langs->trans('PosplusSessionCurrency').' ('.$sessioncurrency.')</label>';
-	print '<input type="text" id="posplus_ses" class="posplus-session" value="'.posplus_fmt_amount($remaintopay * $multicurrencyrate, '').'">';
+if ($foreigncurrency) {
+	print '<div class="field"><label>'.$langs->trans('PosplusInvoiceCurrency').' ('.dol_escape_htmltag($foreigncurrency).')</label>';
+	print '<input type="text" inputmode="decimal" autocomplete="off" id="posplus_mc" class="posplus-mc" value="'.posplus_fmt_amount($remaintopaymc, '').'">';
 	print '</div>';
 }
 print '</div>';
-if ($multicurrencyactive) {
-	print '<div class="payplus-rate-hint">1 '.dol_escape_htmltag($maincurrency).' = '.posplus_fmt_amount($multicurrencyrate, '').' '.dol_escape_htmltag($sessioncurrency).'</div>';
+if ($foreigncurrency) {
+	print '<div class="payplus-rate-hint">'.$langs->trans('PosplusRateOfInvoice').': 1 '.dol_escape_htmltag($maincurrency).' = '.posplus_fmt_amount($invoicerate, '').' '.dol_escape_htmltag($foreigncurrency).'</div>';
 }
 print '</div>';
 
-// Payment mode buttons grid
+// Payment mode buttons grid, each one with the amount it will take in the currency of its box
 print '<div class="payplus-grid" id="posplus_modes_grid">';
 $idx = 0;
 foreach ($jsmodes as $m) {
@@ -343,7 +344,7 @@ foreach ($jsmodes as $m) {
 		// Mode not usable for this invoice: shown disabled, the reason is listed below.
 		print '<button type="button" class="btn-mode btn-mode-off" disabled title="'.dol_escape_htmltag($m['disabled']).'">'.dol_escape_htmltag($label).'</button>';
 	} else {
-		print '<button type="button" class="btn-mode" onclick="posplusPayMode('.$idx.')">'.dol_escape_htmltag($label).'</button>';
+		print '<button type="button" class="btn-mode" onclick="posplusPayMode('.$idx.')">'.dol_escape_htmltag($label).'<span class="btn-amount" id="posplus_mode_amount_'.$idx.'"></span></button>';
 	}
 	$idx++;
 }
@@ -378,15 +379,18 @@ print '</div>';
 
 <script type="text/javascript">
 	var posplusRemainToPay = <?php echo (float) $remaintopay; ?>;
+	var posplusRemainToPayMc = <?php echo (float) $remaintopaymc; ?>;
 	var posplusTotalTtc = <?php echo (float) $totaltopay; ?>;
 	var posplusPlace = <?php echo json_encode($place); ?>;
 	var posplusToken = <?php echo json_encode(currentToken()); ?>;
 	var posplusInvoiceId = <?php echo (int) $invoiceid; ?>;
 	var posplusMainCurrency = <?php echo json_encode($maincurrency); ?>;
-	var posplusMulticurrencyRate = <?php echo (float) ($multicurrencyactive ? $multicurrencyrate : 0); ?>;
-	var posplusSessionCurrency = <?php echo json_encode($multicurrencyactive ? $sessioncurrency : ''); ?>;
+	// Foreign currency of the invoice and its rate (foreign per main), '' / 0 if none
+	var posplusForeignCurrency = <?php echo json_encode($foreigncurrency); ?>;
+	var posplusInvoiceRate = <?php echo (float) ($foreigncurrency ? $invoicerate : 0); ?>;
 	var posplusDelayedEnabled = <?php echo ($showdelayed ? '1' : '0'); ?>;
 	var posplusModes = <?php echo json_encode($jsmodes); ?>;
+	var posplusChangeMsg = <?php echo json_encode($langs->transnoentities('PosplusChangeToGive', '%s')); ?>;
 
 	// Parse an amount string ("1.234,56" or "1234.56") into a float.
 	function posplusParseAmount(str) {
@@ -409,74 +413,111 @@ print '</div>';
 		return intPart + ',' + (parts[1] || '00');
 	}
 
-	// Update the remain header (main + session) after a partial payment.
-	function posplusSetRemain(remainMain) {
-		posplusRemainToPay = remainMain;
-		var mainEl = document.getElementById('posplus_remain_main');
-		if (mainEl) { mainEl.textContent = posplusFormatAmount(remainMain) + ' ' + posplusMainCurrency; }
-		var sesEl = document.getElementById('posplus_remain_ses');
-		if (sesEl && posplusMulticurrencyRate > 0) {
-			sesEl.textContent = posplusFormatAmount(remainMain * posplusMulticurrencyRate) + ' ' + posplusSessionCurrency;
+	// Round to 2 decimals.
+	function posplusRound(amount) {
+		return Math.round(amount * 100) / 100;
+	}
+
+	// Whether a mode takes its amount in the foreign currency of the invoice.
+	function posplusIsForeignMode(mode) {
+		return (posplusForeignCurrency !== '' && mode.currency === posplusForeignCurrency);
+	}
+
+	// Amount typed for a mode, in the currency of its box.
+	function posplusModeAmount(mode) {
+		var el = document.getElementById(posplusIsForeignMode(mode) ? 'posplus_mc' : 'posplus_local');
+		return el ? posplusParseAmount(el.value) : 0;
+	}
+
+	// Show on each mode button the amount it will take, in the currency of its box.
+	function posplusRefreshButtons() {
+		for (var k = 0; k < posplusModes.length; k++) {
+			var span = document.getElementById('posplus_mode_amount_' + k);
+			if (!span) { continue; }
+			var amount = posplusModeAmount(posplusModes[k]);
+			span.textContent = amount > 0 ? posplusFormatAmount(amount) + ' ' + posplusModes[k].currency : '';
 		}
 	}
 
-	// Reload the global inputs with a remaining amount (in main currency).
-	function posplusReloadInputs(remainMain) {
-		var local = document.getElementById('posplus_local');
-		if (local) { local.value = remainMain > 0 ? posplusFormatAmount(remainMain) : ''; }
-		posplusSyncSessionFromLocal();
+	// Update the remain header (main + foreign) after a partial payment.
+	function posplusSetRemain(remainMain, remainMc) {
+		posplusRemainToPay = remainMain;
+		posplusRemainToPayMc = remainMc;
+		var mainEl = document.getElementById('posplus_remain_main');
+		if (mainEl) { mainEl.textContent = posplusFormatAmount(remainMain) + ' ' + posplusMainCurrency; }
+		var mcEl = document.getElementById('posplus_remain_mc');
+		if (mcEl) { mcEl.textContent = posplusFormatAmount(remainMc) + ' ' + posplusForeignCurrency; }
 	}
 
-	// Sync session input from local input.
-	function posplusSyncSessionFromLocal() {
-		if (posplusMulticurrencyRate <= 0) { return; }
+	// Reload the inputs with the remains: each one with the exact remain of its currency, so
+	// paying the whole remain in either currency leaves nothing to pay.
+	function posplusReloadInputs() {
 		var local = document.getElementById('posplus_local');
-		var ses = document.getElementById('posplus_ses');
-		if (!local || !ses) { return; }
-		var main = posplusParseAmount(local.value);
-		ses.value = main > 0 ? posplusFormatAmount(main * posplusMulticurrencyRate) : '';
+		if (local) { local.value = posplusRemainToPay > 0 ? posplusFormatAmount(posplusRemainToPay) : ''; }
+		var mc = document.getElementById('posplus_mc');
+		if (mc) { mc.value = posplusRemainToPayMc > 0 ? posplusFormatAmount(posplusRemainToPayMc) : ''; }
+		posplusRefreshButtons();
 	}
 
-	// Sync local input from session input.
-	function posplusSyncLocalFromSession() {
-		if (posplusMulticurrencyRate <= 0) { return; }
+	// Sync the foreign input from the main one (rate of the invoice).
+	function posplusSyncMcFromLocal() {
 		var local = document.getElementById('posplus_local');
-		var ses = document.getElementById('posplus_ses');
-		if (!local || !ses) { return; }
-		var amtSes = posplusParseAmount(ses.value);
-		var main = amtSes / posplusMulticurrencyRate;
-		local.value = main > 0 ? posplusFormatAmount(main) : '';
+		var mc = document.getElementById('posplus_mc');
+		if (local && mc && posplusInvoiceRate > 0) {
+			var main = posplusParseAmount(local.value);
+			mc.value = main > 0 ? posplusFormatAmount(posplusRound(main * posplusInvoiceRate)) : '';
+		}
+		posplusRefreshButtons();
+	}
+
+	// Sync the main input from the foreign one (rate of the invoice).
+	function posplusSyncLocalFromMc() {
+		var local = document.getElementById('posplus_local');
+		var mc = document.getElementById('posplus_mc');
+		if (local && mc && posplusInvoiceRate > 0) {
+			var amountMc = posplusParseAmount(mc.value);
+			local.value = amountMc > 0 ? posplusFormatAmount(posplusRound(amountMc / posplusInvoiceRate)) : '';
+		}
+		posplusRefreshButtons();
 	}
 
 	// Attach input handlers.
 	document.addEventListener('DOMContentLoaded', function() {
 		var local = document.getElementById('posplus_local');
-		if (local) { local.addEventListener('input', function() { posplusSyncSessionFromLocal(); }); }
-		var ses = document.getElementById('posplus_ses');
-		if (ses) { ses.addEventListener('input', function() { posplusSyncLocalFromSession(); }); }
+		if (local) { local.addEventListener('input', posplusSyncMcFromLocal); }
+		var mc = document.getElementById('posplus_mc');
+		if (mc) { mc.addEventListener('input', posplusSyncLocalFromMc); }
+		posplusRefreshButtons();
 	});
 
-	// Register a payment for a given mode using the global local amount.
+	// Register a payment for a given mode with the amount of the currency of its box.
 	function posplusPayMode(modeIdx) {
-		var local = document.getElementById('posplus_local');
-		if (!local) { return; }
-		var amountMain = posplusParseAmount(local.value);
-		if (amountMain <= 0) {
+		var mode = posplusModes[modeIdx];
+		if (!mode) { return; }
+		var foreign = posplusIsForeignMode(mode);
+		var amount = posplusModeAmount(mode);
+		if (amount <= 0) {
 			alert(<?php echo json_encode($langs->trans('TotalAmountEmpty')); ?>);
 			return;
 		}
+		var amountMain = (foreign ? posplusRound(amount / posplusInvoiceRate) : amount);
 
-		var mode = posplusModes[modeIdx];
-		if (!mode) { return; }
-
-		// Change given back (cash LIQ in the main currency only, as the core).
+		// Change given back: recorded by the core only for LIQ in the main currency. For a box
+		// in the foreign currency the amount is capped to the remain by the server: the change
+		// to give back is shown to the cashier before recording.
 		var excess = 0;
-		if (String(mode.code) === 'LIQ' && mode.currency === posplusMainCurrency && amountMain > posplusRemainToPay) {
-			excess = amountMain - posplusRemainToPay;
+		if (!foreign && String(mode.code) === 'LIQ' && mode.currency === posplusMainCurrency && amount > posplusRemainToPay) {
+			excess = posplusRound(amount - posplusRemainToPay);
+		}
+		if (foreign && posplusRemainToPayMc > 0 && amount > posplusRemainToPayMc) {
+			var change = posplusFormatAmount(posplusRound(amount - posplusRemainToPayMc)) + ' ' + mode.currency;
+			if (!confirm(posplusChangeMsg.replace('%s', change))) {
+				return;
+			}
 		}
 
 		// A sale with a negative total is a refund: the core turns it into a credit note,
-		// so it keeps going through takepos/invoice.php?action=valid.
+		// so it keeps going through takepos/invoice.php?action=valid (amount in main currency).
 		if (posplusTotalTtc < 0) {
 			var loadurl = <?php echo json_encode(DOL_URL_ROOT.'/takepos/invoice.php'); ?> + '?action=valid&pay=' + encodeURIComponent(mode.code) + '&amount=' + encodeURIComponent(amountMain) + '&excess=' + encodeURIComponent(excess) + '&accountid=' + encodeURIComponent(mode.accountid) + '&place=' + encodeURIComponent(posplusPlace) + '&invoiceid=' + encodeURIComponent(posplusInvoiceId) + '&token=' + encodeURIComponent(posplusToken);
 			parent.$("#poslines").load(loadurl, function() {
@@ -487,8 +528,8 @@ print '</div>';
 		}
 
 		// Partial or complete payment: registered by POSPlus (the core cannot record a cash
-		// payment of another mode than LIQ into a cash box). The amount is sent in the main
-		// currency; the server converts it with the rate stored on the invoice.
+		// payment of another mode than LIQ into a cash box). The amount is sent in the currency
+		// of the box; the server converts it with the rate stored on the invoice.
 		var url = <?php echo json_encode(dol_buildpath('/posplus/payplus_ajax.php', 1)); ?>;
 		var data = {
 			token: posplusToken,
@@ -496,7 +537,8 @@ print '</div>';
 			place: posplusPlace,
 			invoiceid: posplusInvoiceId,
 			pay: mode.code,
-			amount: amountMain,
+			amount: amount,
+			currency: mode.currency,
 			excess: excess,
 			accountid: mode.accountid
 		};
@@ -535,14 +577,19 @@ print '</div>';
 				return;
 			}
 
-			var remain = resp.remaintopay;
-			if (remain > 0) {
-				// Partial payment: keep the popup open, update the remain and reload the inputs.
-				posplusSetRemain(remain);
-				posplusReloadInputs(remain);
+			if (!resp.paid) {
+				// Partial payment: keep the popup open, update the remains and reload the inputs.
+				var remain = resp.remaintopay;
+				var remainMc = (typeof resp.remaintopay_mc !== 'undefined' ? resp.remaintopay_mc : posplusRound(remain * posplusInvoiceRate));
+				posplusSetRemain(remain, remainMc);
+				posplusReloadInputs();
 				var note = document.getElementById('posplus_paid_note');
 				if (note) {
-					note.textContent = <?php echo json_encode($langs->trans('PosplusPaidPartial')); ?> + ' ' + posplusFormatAmount(remain) + ' ' + posplusMainCurrency;
+					var txt = posplusFormatAmount(remain) + ' ' + posplusMainCurrency;
+					if (posplusForeignCurrency !== '') {
+						txt += ' / ' + posplusFormatAmount(remainMc) + ' ' + posplusForeignCurrency;
+					}
+					note.textContent = <?php echo json_encode($langs->trans('PosplusPaidPartial')); ?> + ' ' + txt;
 				}
 			} else {
 				// Payment complete: the POS shows the paid invoice and prints the ticket.

@@ -1,5 +1,30 @@
 # CHANGELOG MODULE POSPLUS FOR [DOLIBARR ERP CRM](https://www.dolibarr.org)
 
+## 1.2.1
+
+### Actualizar desde la 1.2.0
+
+Reemplazar la carpeta `custom/posplus`. No hay cambios de tablas, permisos ni menús: no hace falta desactivar y activar el módulo.
+
+### Cobro (botón Pagar)
+
+- **Montos en la moneda de cada caja**: el popup muestra el total y el restante en $ y en la moneda de la factura (Bs), con dos campos enlazados por la tasa de la factura (antes el campo en Bs usaba la tasa del día de la moneda del cliente, que podía no coincidir con la de la factura). Cada botón de modo indica el monto que tomará en la moneda de su caja.
+- Un cobro en una caja o cuenta en Bs se envía en Bs y queda **exacto en la línea bancaria**; el core calcula el equivalente en $ con la tasa de la factura. Antes había que teclear el equivalente en $ y los Bs registrados podían diferir en céntimos.
+- Si se entregan más Bs que el restante, se muestra el **vuelto a entregar** antes de registrar; se cobra solo el restante.
+- La factura se cierra cuando el restante queda en cero en cualquiera de las dos monedas (evita que quede abierta por un céntimo de redondeo).
+- Se rechaza un monto en Bs que vale menos de 0,01 $ (dejaba una línea bancaria sin importe aplicado a la factura) y un monto en una moneda distinta a la de la cuenta del modo.
+- Se controla el resultado de cerrar la factura como pagada.
+
+### Arqueo de caja
+
+- Dos aperturas de turno al mismo tiempo en la misma terminal (doble clic, dos pestañas, dos cajeros) ya no crean dos turnos abiertos: la segunda espera a la primera y se rechaza.
+- **Arqueo ciego**: el ticket del turno abierto (con lo esperado calculado al momento) solo lo ve quien tiene el permiso *Ver el historial de arqueos*; antes un cajero podía verlo escribiendo la dirección.
+- El ticket del turno abierto ya no muestra avisos PHP.
+
+### Otros
+
+- `build/buildzip.php`: en Windows las rutas del zip se guardan con `/` (con `\` el zip se descomprimía mal en Linux).
+
 ## 1.2.0
 
 Requiere Dolibarr 23 o superior (probado en 24.0.2) y PHP 7.2 o superior.

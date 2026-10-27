@@ -85,6 +85,9 @@ PosplusPaidPartial = Pago parcial registrado
 PosplusPayThisMode = Pagar con este modo
 PosplusLocalCurrency = Moneda local
 PosplusSessionCurrency = Moneda del cliente
+PosplusInvoiceCurrency = Moneda de la factura
+PosplusRateOfInvoice = Tasa de la factura
+PosplusChangeToGive = Vuelto a entregar: %s. ¿Continuar?
 PosplusDelayed = Aplazado
 PosplusDelayedDesc = Venta a crédito (pago diferido)
 
@@ -156,6 +159,7 @@ PosplusCashCloseX = Cerrar turno
 PosplusCashCloseZ = Cerrar el día
 PosplusCashConfirmClose = ¿Confirma el cierre? Los montos contados no se podrán modificar.
 PosplusCashBlindHelp = Arqueo ciego: indique el efectivo contado en cada caja y declare los demás medios de pago. Las diferencias se muestran al cerrar.
+PosplusCashTicketBlindForbidden = Arqueo ciego: el detalle del turno abierto con los montos esperados solo lo puede ver un supervisor (permiso de ver el historial de arqueos) hasta el cierre.
 PosplusCashZHelp = El cierre Z cierra el día de esta caja: después no se podrá cobrar hasta mañana.
 PosplusCashBack = Volver
 PosplusCashDaySales = Ventas del día

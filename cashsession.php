@@ -180,6 +180,11 @@ if ($action == 'ticket') {
 	if ($ticket->fetch($id) <= 0 || ($ticket->terminal !== $terminal && !$user->hasRight('posplus', 'arqueo', 'read'))) {
 		accessforbidden();
 	}
+	// The ticket of an open shift shows the expected amounts computed now: with the blind count
+	// only a supervisor (history permission) can see it before the close.
+	if ($ticket->status == PosplusCashSession::STATUS_OPEN && $blind && !$user->hasRight('posplus', 'arqueo', 'read')) {
+		accessforbidden($langs->trans('PosplusCashTicketBlindForbidden'));
+	}
 }
 
 /*

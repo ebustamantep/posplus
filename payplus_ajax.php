@@ -126,9 +126,11 @@ if ($terminal === '') {
 $place = (GETPOST('place', 'aZ09') ? GETPOST('place', 'aZ09') : '0');
 $invoiceid = GETPOSTINT('invoiceid');
 $pay = GETPOST('pay', 'aZ09');
-// Amount always in the MAIN currency: the conversion to the bank/invoice currency is
-// done here with the rate stored on the invoice, never with a rate sent by the browser.
+// Amount in the currency of the box/account of the mode (GETPOST 'currency'): in the main
+// currency, or in the invoice currency for an account of that currency (e.g. Bs). The
+// conversion is done with the rate stored on the invoice, never with a rate sent by the browser.
 $amountofpayment = (float) price2num(GETPOSTFLOAT('amount'), 'MT');
+$amountcurrency = GETPOST('currency', 'aZ09');
 // Cash received above the remain to pay (change given back), in the main currency.
 $excess = (float) price2num(GETPOSTFLOAT('excess'), 'MT');
 $accountid = GETPOSTINT('accountid');
@@ -301,6 +303,12 @@ if ($invoice->status == Facture::STATUS_DRAFT) {
 	$errormsg = $langs->transnoentities('InvoiceIsAlreadyValidated', 'TakePos');
 }
 
+// The bank account must be in the main currency or in the invoice currency: any other
+// combination would be recorded by the core with a wrong amount.
+$invoicecurrency = ($invoice->multicurrency_code ? $invoice->multicurrency_code : $conf->currency);
+// Payment received in the foreign currency of the invoice (account in that currency)
+$payinforeign = ($bankcurrency != $conf->currency && $bankcurrency == $invoicecurrency && (float) $invoice->multicurrency_tx > 0);
+
 if (!$error) {
 	$remaintopay = (float) price2num($invoice->getRemainToPay(), 'MT');
 	if ($remaintopay <= 0) {
@@ -309,23 +317,43 @@ if (!$error) {
 	}
 }
 
-// The bank account must be in the main currency or in the invoice currency: any other
-// combination would be recorded by the core with a wrong amount.
-$invoicecurrency = ($invoice->multicurrency_code ? $invoice->multicurrency_code : $conf->currency);
 if (!$error && !posplus_bank_currency_allowed($bankcurrency, $invoicecurrency)) {
 	$error++;
 	$errormsg = $langs->transnoentities('PosplusErrorBankCurrency', $bankcurrency, $invoicecurrency);
+}
+// The amount must be in the currency of the account of the mode (the popup sends it so)
+if (!$error && $amountcurrency !== '' && $amountcurrency != $bankcurrency) {
+	$error++;
+	$errormsg = $langs->transnoentities('ErrorBadParameters').' ('.$langs->transnoentitiesnoconv('Currency').')';
+}
+// An amount in the foreign currency worth less than 0.01 in the main currency would record a
+// bank line without any amount on the invoice.
+if (!$error && $payinforeign && (float) price2num($amountofpayment / (float) $invoice->multicurrency_tx, 'MT') <= 0) {
+	$error++;
+	$errormsg = $langs->transnoentities('TotalAmountEmpty');
 }
 
 if (!$error) {
 	$payment = new Paiement($db);
 	$payment->datepaye = dol_now();
 	$payment->fk_account = $bankaccount;
-	// Amount in main currency, never more than the remain to pay. multicurrency_amounts is
-	// left empty on purpose (as takepos/invoice.php does): Paiement::create() converts it
-	// with the invoice rate and addPaymentToBank() records the bank line in the account
-	// currency when it is the invoice currency.
-	$payment->amounts[$invoice->id] = price2num(min($amountofpayment, $remaintopay), 'MT');
+	if ($payinforeign) {
+		// Amount in the invoice currency, as received in the box (e.g. Bs), never more than the
+		// remain to pay in that currency: Paiement::create() converts it to the main currency
+		// with the invoice rate and the bank line keeps the exact amount received.
+		$remaintopaymc = (float) price2num($invoice->getRemainToPay(1), 'MT');
+		if ($remaintopaymc <= 0) {
+			$remaintopaymc = (float) price2num($remaintopay * (float) $invoice->multicurrency_tx, 'MT');
+		}
+		$payment->multicurrency_amounts[$invoice->id] = price2num(min($amountofpayment, $remaintopaymc), 'MT');
+		$payment->multicurrency_code[$invoice->id] = $invoicecurrency;
+		$payment->multicurrency_tx[$invoice->id] = (float) $invoice->multicurrency_tx;
+	} else {
+		// Amount in main currency, never more than the remain to pay. multicurrency_amounts is
+		// left empty (as takepos/invoice.php does): Paiement::create() converts it with the
+		// invoice rate.
+		$payment->amounts[$invoice->id] = price2num(min($amountofpayment, $remaintopay), 'MT');
+	}
 	// Change given back: as the core, only for LIQ in the main currency (a change in another
 	// currency is not supported by the core: the amount is just capped to the remain to pay).
 	if ($paycode == 'LIQ' && $bankcurrency == $conf->currency && $amountofpayment > $remaintopay) {
@@ -349,13 +377,26 @@ if (!$error) {
 	}
 }
 
+$remaintopaymc = 0;
+$paid = 0;
 if (!$error) {
-	// Close the invoice if fully paid.
+	// Close the invoice if fully paid. With a foreign invoice currency, the remain in one
+	// currency can keep a cent of rounding when the other one is fully paid: the invoice is
+	// paid when either remain is zero.
 	$remaintopay = (float) price2num($invoice->getRemainToPay(), 'MT');
-	if ($remaintopay == 0) {
-		$invoice->setPaid($user);
-		$invoice->setPaymentMethods($paiementid);
+	$usemc = ($invoicecurrency != $conf->currency && (float) $invoice->multicurrency_tx > 0);
+	$remaintopaymc = ($usemc ? (float) price2num($invoice->getRemainToPay(1), 'MT') : $remaintopay);
+	if ($remaintopay <= 0 || $remaintopaymc <= 0) {
+		$paid = 1;
+		if ($invoice->setPaid($user) < 0 || $invoice->setPaymentMethods($paiementid) < 0) {
+			$error++;
+			$errormsg = $invoice->error;
+		}
+		$remaintopay = 0;
+		$remaintopaymc = 0;
 	}
+}
+if (!$error) {
 	$db->commit();
 } else {
 	$db->rollback();
@@ -364,6 +405,13 @@ if (!$error) {
 if ($error) {
 	print json_encode(array('error' => $errormsg ? $errormsg : $langs->transnoentities('Error')));
 } else {
-	print json_encode(array('success' => true, 'remaintopay' => $remaintopay, 'invoiceid' => (int) $invoice->id, 'paid' => ($remaintopay == 0 ? 1 : 0)));
+	print json_encode(array(
+		'success' => true,
+		'remaintopay' => $remaintopay,
+		'remaintopay_mc' => $remaintopaymc,
+		'currency_mc' => $invoicecurrency,
+		'invoiceid' => (int) $invoice->id,
+		'paid' => $paid,
+	));
 }
 $db->close();
