@@ -244,9 +244,17 @@ foreach ($arrayOfPaymentModes as $mode) {
 		'accountid' => (int) $mode['accountid'],
 		'currency' => $mode['currency'],
 		'disabled' => $mode['disabled'],
+		'needref' => posplus_mode_needs_reference($db, $mode['code'], $mode['accountid']),
 	);
 }
 $rowcount = count($jsmodes);
+// The reference field is shown when some mode needs it (every one but cash).
+$anyneedref = false;
+foreach ($jsmodes as $m) {
+	if ($m['needref']) {
+		$anyneedref = true;
+	}
+}
 
 // With the cash count by shift, no payment can be taken without an open shift.
 $nocashsession = false;
@@ -280,6 +288,8 @@ body { background-color: #fff; padding: 10px; font-size: 14px; font-family: Aria
 .payplus-amounts .field { display: flex; flex-direction: column; }
 .payplus-amounts .field label { font-size: 0.85em; opacity: 0.75; margin-bottom: 2px; }
 .payplus-amounts .field input[type="text"] { width: 160px; text-align: right; padding: 5px 8px; font-size: 1.1em; }
+.payplus-amounts .field input.posplus-ref { width: 200px; text-align: left; }
+.payplus-amounts .field input.posplus-ref-missing { border-color: #c00; background-color: #fff0f0; }
 .payplus-rate-hint { font-size: 0.85em; opacity: 0.75; margin-top: 6px; }
 .payplus-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
 .payplus-grid .btn-mode { font-size: 1.05em; padding: 10px 8px; cursor: pointer; }
@@ -324,6 +334,11 @@ print '</div>';
 if ($foreigncurrency) {
 	print '<div class="field"><label>'.$langs->trans('PosplusInvoiceCurrency').' ('.dol_escape_htmltag($foreigncurrency).')</label>';
 	print '<input type="text" inputmode="decimal" autocomplete="off" id="posplus_mc" class="posplus-mc" value="'.posplus_fmt_amount($remaintopaymc, '').'">';
+	print '</div>';
+}
+if ($anyneedref) {
+	print '<div class="field"><label for="posplus_ref">'.$langs->trans('PosplusPaymentRef').' ('.$langs->trans('PosplusPaymentRefHelp').')</label>';
+	print '<input type="text" autocomplete="off" maxlength="50" id="posplus_ref" class="posplus-ref" value="">';
 	print '</div>';
 }
 print '</div>';
@@ -456,6 +471,9 @@ print '</div>';
 		if (local) { local.value = posplusRemainToPay > 0 ? posplusFormatAmount(posplusRemainToPay) : ''; }
 		var mc = document.getElementById('posplus_mc');
 		if (mc) { mc.value = posplusRemainToPayMc > 0 ? posplusFormatAmount(posplusRemainToPayMc) : ''; }
+		// Each payment has its own reference: the next one must not reuse it.
+		var ref = document.getElementById('posplus_ref');
+		if (ref) { ref.value = ''; }
 		posplusRefreshButtons();
 	}
 
@@ -487,6 +505,8 @@ print '</div>';
 		if (local) { local.addEventListener('input', posplusSyncMcFromLocal); }
 		var mc = document.getElementById('posplus_mc');
 		if (mc) { mc.addEventListener('input', posplusSyncLocalFromMc); }
+		var ref = document.getElementById('posplus_ref');
+		if (ref) { ref.addEventListener('input', function() { ref.classList.remove('posplus-ref-missing'); }); }
 		posplusRefreshButtons();
 	});
 
@@ -501,6 +521,15 @@ print '</div>';
 			return;
 		}
 		var amountMain = (foreign ? posplusRound(amount / posplusInvoiceRate) : amount);
+
+		// Every payment but cash needs its reference (confirmation number).
+		var refEl = document.getElementById('posplus_ref');
+		var numPayment = (refEl ? refEl.value.trim() : '');
+		if (mode.needref && numPayment === '' && posplusTotalTtc >= 0) {
+			alert(<?php echo json_encode($langs->trans('PosplusRefRequired')); ?>);
+			if (refEl) { refEl.classList.add('posplus-ref-missing'); refEl.focus(); }
+			return;
+		}
 
 		// Change given back: recorded by the core only for LIQ in the main currency. For a box
 		// in the foreign currency the amount is capped to the remain by the server: the change
@@ -540,7 +569,8 @@ print '</div>';
 			amount: amount,
 			currency: mode.currency,
 			excess: excess,
-			accountid: mode.accountid
+			accountid: mode.accountid,
+			num_payment: numPayment
 		};
 
 		posplusSendPayment(url, data);

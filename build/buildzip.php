@@ -60,7 +60,11 @@ $listOfModuleContent = [
 $exclude_list = [
 	'/^.git$/',
 	'/.*js.map/',
-	'/DEV.md/'
+	'/DEV.md/',
+	// Directories of the repository that are not part of the module
+	'/^bin$/',
+	'/^build$/',
+	'/^\.tx$/'
 ];
 
 // ============================================= end of configuration
@@ -214,6 +218,9 @@ function rcopy($src, $dst)
 		while ($file = readdir($dir)) {
 			if (($file != '.') && ($file != '..')) {
 				if (is_dir($src . '/' . $file)) {
+					if (is_excluded($file)) {
+						continue;
+					}
 					// Recursively calling custom copy function
 					// for sub directory
 					if (!rcopy($src . '/' . $file, $dst . '/' . $file)) {

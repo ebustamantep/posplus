@@ -1,5 +1,29 @@
 # CHANGELOG MODULE POSPLUS FOR [DOLIBARR ERP CRM](https://www.dolibarr.org)
 
+## 1.2.2
+
+### Actualizar desde la 1.2.1
+
+Reemplazar la carpeta `custom/posplus`. No hay cambios de tablas, permisos ni menús. La nueva opción funciona activada aunque no se reactive el módulo; para que aparezca marcada en la configuración, desactivar y activar el módulo una vez (o guardarla desde *Configuración*).
+
+### Cobro (botón Pagar)
+
+- **Referencia obligatoria**: todo cobro que no sea en efectivo (transferencia, pago móvil, punto de venta...) exige el número de confirmación en el nuevo campo *Referencia* del popup. Se considera efectivo el modo cuya cuenta configurada en TakePOS es de tipo *Caja* (LIQ, efectivo en Bs...); sin el módulo Bancos, solo LIQ. El servidor también lo valida.
+- La referencia se guarda donde la guarda el core: en el pago (*Número* del pago) y en la línea bancaria (útil para la conciliación). En un cobro con pagos parciales cada pago lleva su propia referencia: el campo se vacía tras cada uno.
+- El ticket imprime `Ref: …` debajo de cada pago que la tenga.
+- Nueva opción *Pedir la referencia en todo cobro que no sea en efectivo* (`POSPLUS_PAYMENT_REF_REQUIRED`), activada por defecto.
+- Las devoluciones (venta con total negativo) siguen el flujo del core, sin referencia.
+
+### Efectivo en bolívares configurado al activar
+
+TakePOS solo ofrece cuentas de tipo *Caja* a los modos de pago cuyo código empieza por `LIQ`. Con otro código (p. ej. `EFBS`) la caja en Bs no aparece en la configuración de la terminal y, si se asignó antes, la asignación se pierde al guardar esa página. Al activar el módulo, para cada moneda extranjera de Multimoneda:
+
+- **Caja**: si no hay ninguna cuenta de tipo Caja en bolívares, se crea `CAJA<moneda>` *Efectivo Bolívares* (saldo 0). Otras monedas solo se tratan si ya tienen una caja.
+- **Modo de pago** `LIQBS` (`LIQ` + código ISO en otras monedas): si un modo con otro código ya está asignado a esa caja (p. ej. `EFBS`), se renombra conservando su id y su historial, y se trasladan sus asignaciones; si no, se crea.
+- **Terminales**: cada terminal sin cuenta para ese modo recibe la caja. Nunca se cambia una asignación ya hecha; si hay varias cajas en la moneda, se avisa para asignarla a mano.
+
+La página de configuración de POSPlus muestra lo que falta y un botón *Configurar ahora* para aplicarlo sin reactivar el módulo. Requiere los módulos Multimoneda y Bancos.
+
 ## 1.2.1
 
 ### Actualizar desde la 1.2.0

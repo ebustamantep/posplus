@@ -277,6 +277,254 @@ function posplus_bank_account_is_cash($db, $accountid)
 }
 
 /**
+ * Whether a payment must carry its reference (confirmation number of the transfer, mobile
+ * payment, card voucher...). Every payment needs it except cash: a mode whose account is a
+ * cash box (LIQ, EFBS...) or, without the bank module, LIQ. Option POSPLUS_PAYMENT_REF_REQUIRED
+ * (on when not yet defined, so it applies after replacing the folder).
+ *
+ * @param DoliDB $db        Database handler
+ * @param string $paycode   Code of c_paiement
+ * @param int    $accountid Bank account id of the mode (0 without the bank module)
+ * @return bool
+ */
+function posplus_mode_needs_reference($db, $paycode, $accountid)
+{
+	if (!getDolGlobalInt('POSPLUS_PAYMENT_REF_REQUIRED', 1)) {
+		return false;
+	}
+	if (isModEnabled('bank') && $accountid > 0) {
+		return !posplus_bank_account_is_cash($db, $accountid);
+	}
+	return ($paycode != 'LIQ');
+}
+
+/**
+ * Code of the cash payment mode of a foreign currency. TakePOS only offers the accounts of
+ * type Cash to a mode whose code starts with LIQ (takepos/admin/terminal.php), so a cash mode
+ * must be named LIQ...: LIQBS for the bolivar (VES, VEF, VED), LIQ + ISO code otherwise.
+ *
+ * @param string $currency Currency code
+ * @return string
+ */
+function posplus_foreign_cash_code($currency)
+{
+	return (in_array($currency, array('VES', 'VEF', 'VED')) ? 'LIQBS' : 'LIQ'.$currency);
+}
+
+/**
+ * Configure the cash in the foreign currencies of multicurrency so a cash box in that
+ * currency can be used in TakePOS without manual setup (run at module activation and from
+ * the setup page). For each foreign currency:
+ * - the cash box (account of type Cash) of that currency; for the bolivar it is created when
+ *   missing, other currencies are only handled when they already have one;
+ * - the cash payment mode LIQBS / LIQ<ISO>: a mode whose code does not start with LIQ but is
+ *   assigned to that cash box in a terminal (e.g. EFBS) is renamed (payments keep its id),
+ *   otherwise the mode is created;
+ * - each terminal without an account for that mode gets the cash box. An assignment already
+ *   made is never changed.
+ * Idempotent. With $dryrun nothing is written and the messages describe what would be done.
+ *
+ * @param DoliDB $db     Database handler
+ * @param User   $user   User
+ * @param bool   $dryrun True to only check
+ * @return array<int,array{type:string,msg:string}> Messages (type info, warning or error)
+ */
+function posplus_setup_foreign_cash($db, $user, $dryrun = false)
+{
+	global $conf, $langs, $mysoc;
+
+	require_once DOL_DOCUMENT_ROOT.'/core/lib/admin.lib.php';
+	require_once DOL_DOCUMENT_ROOT.'/compta/bank/class/account.class.php';
+	$langs->loadLangs(array('posplus@posplus', 'banks'));
+
+	$out = array();
+	if (!isModEnabled('multicurrency') || !isModEnabled('bank')) {
+		return $out;
+	}
+	$nbterminals = max(1, getDolGlobalInt('TAKEPOS_NUM_TERMINALS', 1));
+
+	$currencies = array();
+	$sql = "SELECT code FROM ".MAIN_DB_PREFIX."multicurrency";
+	$sql .= " WHERE entity IN (".getEntity('multicurrency').")";
+	$sql .= " AND code <> '".$db->escape($conf->currency)."'";
+	$sql .= " ORDER BY code";
+	$resql = $db->query($sql);
+	if (!$resql) {
+		return array(array('type' => 'error', 'msg' => $db->lasterror()));
+	}
+	while ($obj = $db->fetch_object($resql)) {
+		$currencies[] = (string) $obj->code;
+	}
+
+	foreach ($currencies as $currency) {
+		$isbs = in_array($currency, array('VES', 'VEF', 'VED'));
+		$paycode = posplus_foreign_cash_code($currency);
+		$label = ($isbs ? $langs->transnoentities('PosplusFxCashLabelBs') : $langs->transnoentities('PosplusFxCashLabel', $currency));
+
+		// Open cash boxes in this currency
+		$cashboxes = array();
+		$sql = "SELECT rowid, ref FROM ".MAIN_DB_PREFIX."bank_account";
+		$sql .= " WHERE entity IN (".getEntity('bank_account').")";
+		$sql .= " AND courant = ".((int) Account::TYPE_CASH)." AND clos = ".((int) Account::STATUS_OPEN);
+		$sql .= " AND currency_code = '".$db->escape($currency)."'";
+		$sql .= " ORDER BY rowid";
+		$resql = $db->query($sql);
+		if (!$resql) {
+			$out[] = array('type' => 'error', 'msg' => $db->lasterror());
+			continue;
+		}
+		while ($obj = $db->fetch_object($resql)) {
+			$cashboxes[(int) $obj->rowid] = (string) $obj->ref;
+		}
+		if (empty($cashboxes)) {
+			if (!$isbs) {
+				continue; // A foreign currency without cash box is not received in cash
+			}
+			$ref = 'CAJA'.$currency;
+			if ($dryrun) {
+				$out[] = array('type' => 'warning', 'msg' => $langs->transnoentities('PosplusFxCashBoxToCreate', $currency, $label));
+				$cashboxes[0] = $ref;
+			} else {
+				// Ref and label must be unique in the entity (a closed box may already use them)
+				$n = 1;
+				$sql = "SELECT COUNT(*) as nb FROM ".MAIN_DB_PREFIX."bank_account WHERE entity = ".((int) $conf->entity);
+				while (($res = $db->query($sql." AND ref = '".$db->escape($ref)."'")) && ($obj = $db->fetch_object($res)) && $obj->nb > 0) {
+					$n++;
+					$ref = 'CAJA'.$currency.$n;
+				}
+				$n = 1;
+				$acclabel = $label;
+				while (($res = $db->query($sql." AND label = '".$db->escape($acclabel)."'")) && ($obj = $db->fetch_object($res)) && $obj->nb > 0) {
+					$n++;
+					$acclabel = $label.' '.$n;
+				}
+				$acc = new Account($db);
+				$acc->ref = $ref;
+				$acc->label = $acclabel;
+				$acc->type = Account::TYPE_CASH;
+				$acc->status = Account::STATUS_OPEN;
+				$acc->currency_code = $currency;
+				$acc->country_id = (int) $mysoc->country_id;
+				$acc->date_solde = dol_now();
+				$acc->rappro = 0;
+				if ($acc->create($user) <= 0) {
+					$out[] = array('type' => 'error', 'msg' => $langs->transnoentities('PosplusFxError', $acclabel, $acc->error));
+					continue;
+				}
+				$cashboxes[(int) $acc->id] = $ref;
+				$out[] = array('type' => 'info', 'msg' => $langs->transnoentities('PosplusFxCashBoxCreated', $ref, $acclabel));
+			}
+		}
+
+		// Cash payment mode of the currency
+		$modeexists = false;
+		$oldcode = '';
+		$sql = "SELECT id FROM ".MAIN_DB_PREFIX."c_paiement";
+		$sql .= " WHERE entity IN (".getEntity('c_paiement').") AND code = '".$db->escape($paycode)."'";
+		$resql = $db->query($sql);
+		if ($resql && $db->fetch_object($resql)) {
+			$modeexists = true;
+		}
+		if (!$modeexists) {
+			// A mode not named LIQ... but assigned to one of these cash boxes (e.g. EFBS): the
+			// terminal setup of TakePOS would lose its account at the next save.
+			$sql = "SELECT id, code FROM ".MAIN_DB_PREFIX."c_paiement";
+			$sql .= " WHERE entity IN (".getEntity('c_paiement').") AND code NOT LIKE 'LIQ%'";
+			$sql .= " ORDER BY id";
+			$resql = $db->query($sql);
+			while ($resql && $oldcode === '' && ($obj = $db->fetch_object($resql))) {
+				for ($t = 1; $t <= $nbterminals; $t++) {
+					$accountid = posplus_get_mode_bankaccount($obj->code, (string) $t);
+					if ($accountid > 0 && isset($cashboxes[$accountid])) {
+						$oldcode = (string) $obj->code;
+						break;
+					}
+				}
+			}
+			if ($oldcode !== '' && in_array($oldcode, array('CB', 'CHQ'))) {
+				$oldcode = ''; // Core modes are never renamed
+			}
+			if ($dryrun) {
+				if ($oldcode !== '') {
+					$out[] = array('type' => 'warning', 'msg' => $langs->transnoentities('PosplusFxModeToRename', $oldcode, $paycode));
+				} else {
+					$out[] = array('type' => 'warning', 'msg' => $langs->transnoentities('PosplusFxModeToCreate', $paycode, $label));
+				}
+			} elseif ($oldcode !== '') {
+				$db->begin();
+				$ok = $db->query("UPDATE ".MAIN_DB_PREFIX."c_paiement SET code = '".$db->escape($paycode)."' WHERE entity IN (".getEntity('c_paiement').") AND code = '".$db->escape($oldcode)."'");
+				for ($t = 1; $ok && $t <= $nbterminals; $t++) {
+					$accountid = getDolGlobalInt('CASHDESK_ID_BANKACCOUNT_'.$oldcode.$t);
+					if ($accountid > 0) {
+						$ok = (dolibarr_set_const($db, 'CASHDESK_ID_BANKACCOUNT_'.$paycode.$t, (string) $accountid, 'chaine', 0, '', $conf->entity) > 0
+							&& dolibarr_del_const($db, 'CASHDESK_ID_BANKACCOUNT_'.$oldcode.$t, $conf->entity) >= 0);
+					}
+				}
+				if ($ok) {
+					$db->commit();
+					$out[] = array('type' => 'info', 'msg' => $langs->transnoentities('PosplusFxModeRenamed', $oldcode, $paycode));
+				} else {
+					$db->rollback();
+					$out[] = array('type' => 'error', 'msg' => $langs->transnoentities('PosplusFxError', $oldcode, $db->lasterror()));
+					continue;
+				}
+			} else {
+				// Same insert as the dictionary page (admin/dict.php): free id, then on
+				// PostgreSQL the sequence is moved after it.
+				$newid = 0;
+				$resql = $db->query("SELECT MAX(id) as maxid FROM ".MAIN_DB_PREFIX."c_paiement");
+				if ($resql && ($obj = $db->fetch_object($resql))) {
+					$newid = ((int) $obj->maxid) + 1;
+				}
+				$sql = "INSERT INTO ".MAIN_DB_PREFIX."c_paiement (id, entity, code, libelle, type, active, position)";
+				$sql .= " VALUES (".((int) $newid).", ".((int) $conf->entity).", '".$db->escape($paycode)."', '".$db->escape($label)."', 2, 1, 0)";
+				if ($newid <= 0 || !$db->query($sql)) {
+					$out[] = array('type' => 'error', 'msg' => $langs->transnoentities('PosplusFxError', $paycode, $db->lasterror()));
+					continue;
+				}
+				if ($db->type == 'pgsql') {
+					$db->query("SELECT setval(pg_get_serial_sequence('".$db->escape(MAIN_DB_PREFIX."c_paiement")."', 'id'), GREATEST((SELECT MAX(id) FROM ".MAIN_DB_PREFIX."c_paiement), 1))");
+				}
+				$out[] = array('type' => 'info', 'msg' => $langs->transnoentities('PosplusFxModeCreated', $paycode, $label));
+			}
+		}
+
+		// Terminals without an account for the mode get the cash box (only when there is one)
+		if (count($cashboxes) > 1) {
+			$missing = false;
+			for ($t = 1; $t <= $nbterminals; $t++) {
+				if (posplus_get_mode_bankaccount($paycode, (string) $t) <= 0) {
+					$missing = true;
+				}
+			}
+			if ($missing) {
+				$out[] = array('type' => 'warning', 'msg' => $langs->transnoentities('PosplusFxSeveralCashBoxes', $currency, $paycode));
+			}
+			continue;
+		}
+		$accountid = (int) key($cashboxes);
+		$accountref = reset($cashboxes);
+		for ($t = 1; $t <= $nbterminals; $t++) {
+			if (posplus_get_mode_bankaccount($paycode, (string) $t) > 0) {
+				continue;
+			}
+			if ($dryrun && $oldcode !== '' && posplus_get_mode_bankaccount($oldcode, (string) $t) > 0) {
+				continue; // Comes with the rename
+			}
+			if ($dryrun) {
+				$out[] = array('type' => 'warning', 'msg' => $langs->transnoentities('PosplusFxTerminalToAssign', $t, $paycode, $accountref));
+			} elseif (dolibarr_set_const($db, 'CASHDESK_ID_BANKACCOUNT_'.$paycode.$t, (string) $accountid, 'chaine', 0, '', $conf->entity) > 0) {
+				$out[] = array('type' => 'info', 'msg' => $langs->transnoentities('PosplusFxTerminalAssigned', $t, $paycode, $accountref));
+			} else {
+				$out[] = array('type' => 'error', 'msg' => $langs->transnoentities('PosplusFxError', $paycode, $db->lasterror()));
+			}
+		}
+	}
+
+	return $out;
+}
+
+/**
  * Record the bank line of a customer payment. The core only accepts the operation code
  * LIQ on a cash box (Account::addline, ErrorCashAccountAcceptsOnlyCashMoney): on a cash box
  * the bank line is recorded as LIQ while the payment keeps its own mode (EFBS...), so the

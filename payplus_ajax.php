@@ -134,6 +134,8 @@ $amountcurrency = GETPOST('currency', 'aZ09');
 // Cash received above the remain to pay (change given back), in the main currency.
 $excess = (float) price2num(GETPOSTFLOAT('excess'), 'MT');
 $accountid = GETPOSTINT('accountid');
+// Reference of the payment (confirmation number), stored in num_paiement and in the bank line.
+$numpayment = dol_trunc(trim(GETPOST('num_payment', 'alphanohtml')), 50, 'right', 'UTF-8', 1);
 
 // Load the invoice (only a TakePOS invoice of this terminal and of an entity of the user)
 $invoice = new Facture($db);
@@ -221,6 +223,11 @@ if (isModEnabled('bank')) {
 		posplus_ajax_fail($langs->transnoentities('ErrorBadParameters'));
 	}
 	$bankaccount = 0;
+}
+
+// Every payment but cash must carry its reference.
+if ($numpayment === '' && posplus_mode_needs_reference($db, $paycode, $bankaccount)) {
+	posplus_ajax_fail($langs->transnoentities('PosplusRefRequired'));
 }
 
 $error = 0;
@@ -361,7 +368,7 @@ if (!$error) {
 	}
 	$payment->paiementid = $paiementid;
 	$payment->paiementcode = $paycode;
-	$payment->num_payment = '';
+	$payment->num_payment = $numpayment;
 
 	$res = $payment->create($user); // This records the payment and regenerates the PDF
 	if ($res < 0) {

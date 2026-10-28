@@ -91,6 +91,9 @@ PosplusSessionCurrency = Customer currency
 PosplusInvoiceCurrency = Invoice currency
 PosplusRateOfInvoice = Rate of the invoice
 PosplusChangeToGive = Change to give back: %s. Continue?
+PosplusPaymentRef = Reference
+PosplusPaymentRefHelp = required except for cash
+PosplusRefRequired = Enter the reference (confirmation number) of the payment
 PosplusDelayed = Deferred
 PosplusDelayedDesc = Credit sale (deferred payment)
 
@@ -100,6 +103,25 @@ DESCUENTO_LINEA = Line discount
 MODIFICAR_PRECIO = Modify price
 VENTA_DIVIDIDA = Split sale
 PRODUCTO_LIBRE = Free text product
+POSPLUS_PAYMENT_REF_REQUIRED = Ask the reference (confirmation number) of every non-cash payment (account of type Cash)
+
+# Cash in foreign currencies (set up at activation)
+PosplusFxSection = Cash in foreign currencies
+PosplusFxSectionHelp = When the module is activated, POSPlus prepares the cash payments of each foreign currency of Multicurrency: the bolivar cash box (created when missing), the LIQBS payment mode (TakePOS only offers accounts of type Cash to modes whose code starts with LIQ) and the cash box of each terminal that has none yet. An assignment already made is never changed.
+PosplusFxAllOk = Cash in foreign currencies is set up
+PosplusFxRunButton = Set up now
+PosplusFxCashLabelBs = Cash Bolivares
+PosplusFxCashLabel = Cash %s
+PosplusFxCashBoxToCreate = There is no cash box in %s: "%s" will be created
+PosplusFxCashBoxCreated = Cash box %s (%s) created
+PosplusFxModeToRename = Payment mode %s is assigned to a cash box but its code does not start with LIQ (TakePOS would lose the assignment when saving the terminal): it will be renamed to %s
+PosplusFxModeRenamed = Payment mode %s renamed to %s
+PosplusFxModeToCreate = Payment mode %s (%s) is missing: it will be created
+PosplusFxModeCreated = Payment mode %s (%s) created
+PosplusFxTerminalToAssign = Terminal %s: mode %s has no account: cash box %s will be assigned
+PosplusFxTerminalAssigned = Terminal %s: mode %s assigned to cash box %s
+PosplusFxSeveralCashBoxes = There are several cash boxes in %s: choose the one of mode %s in the setup of each TakePOS terminal
+PosplusFxError = Error with %s: %s
 
 # Errors
 PosplusErrorNoInvoice = No sale is selected on this terminal
@@ -130,6 +152,7 @@ PosplusTicketExempt = Exempt
 PosplusTicketBase = Base
 PosplusTicketVat = VAT
 PosplusTicketTotal = Total
+PosplusTicketRef = Ref
 
 # Cash count by shift
 PosplusCashCount = Cash count

@@ -88,6 +88,9 @@ PosplusSessionCurrency = Moneda del cliente
 PosplusInvoiceCurrency = Moneda de la factura
 PosplusRateOfInvoice = Tasa de la factura
 PosplusChangeToGive = Vuelto a entregar: %s. ¿Continuar?
+PosplusPaymentRef = Referencia
+PosplusPaymentRefHelp = obligatoria salvo en efectivo
+PosplusRefRequired = Indique la referencia (número de confirmación) del pago
 PosplusDelayed = Aplazado
 PosplusDelayedDesc = Venta a crédito (pago diferido)
 
@@ -97,6 +100,25 @@ DESCUENTO_LINEA = Descuento de línea
 MODIFICAR_PRECIO = Modificar precio
 VENTA_DIVIDIDA = Venta dividida
 PRODUCTO_LIBRE = Producto texto libre
+POSPLUS_PAYMENT_REF_REQUIRED = Pedir la referencia (número de confirmación) en todo cobro que no sea en efectivo (cuenta de tipo Caja)
+
+# Cash in foreign currencies (set up at activation)
+PosplusFxSection = Efectivo en moneda extranjera
+PosplusFxSectionHelp = Al activar el módulo, POSPlus prepara el cobro en efectivo de cada moneda extranjera de Multimoneda: la caja en bolívares (se crea si no existe), el modo de pago LIQBS (TakePOS solo ofrece cuentas de tipo Caja a los modos cuyo código empieza por LIQ) y la caja de cada terminal que aún no tenga una. Nunca cambia una asignación ya hecha.
+PosplusFxAllOk = El efectivo en moneda extranjera está configurado
+PosplusFxRunButton = Configurar ahora
+PosplusFxCashLabelBs = Efectivo Bolívares
+PosplusFxCashLabel = Efectivo %s
+PosplusFxCashBoxToCreate = No hay ninguna caja en %s: se creará "%s"
+PosplusFxCashBoxCreated = Se creó la caja %s (%s)
+PosplusFxModeToRename = El modo de pago %s está asignado a una caja pero su código no empieza por LIQ (TakePOS perdería la asignación al guardar la terminal): se renombrará a %s
+PosplusFxModeRenamed = El modo de pago %s pasó a llamarse %s
+PosplusFxModeToCreate = Falta el modo de pago %s (%s): se creará
+PosplusFxModeCreated = Se creó el modo de pago %s (%s)
+PosplusFxTerminalToAssign = Terminal %s: el modo %s no tiene cuenta: se asignará la caja %s
+PosplusFxTerminalAssigned = Terminal %s: el modo %s quedó asignado a la caja %s
+PosplusFxSeveralCashBoxes = Hay varias cajas en %s: asigne la del modo %s en la configuración de cada terminal de TakePOS
+PosplusFxError = Error con %s: %s
 
 # Errors
 PosplusErrorNoInvoice = No hay ninguna venta seleccionada en esta terminal
@@ -127,6 +149,7 @@ PosplusTicketExempt = Exento
 PosplusTicketBase = BI
 PosplusTicketVat = IVA
 PosplusTicketTotal = Total
+PosplusTicketRef = Ref
 
 # Cash count by shift (arqueo)
 PosplusCashCount = Arqueo de caja

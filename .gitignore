@@ -1,0 +1,3 @@
+# Packages built by Module Builder or build/buildzip.php: published as GitHub releases,
+# never versioned. Module Builder (Windows) would put the zips of bin/ inside the next package.
+bin/

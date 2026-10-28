@@ -76,7 +76,7 @@ class modPOSPlus extends DolibarrModules
 		$this->editor_squarred_logo = '';					// Must be image filename into the module/img directory followed with @modulename. Example: 'myimage.png@posplus'
 
 		// Possible values for version are: 'development', 'experimental', 'dolibarr', 'dolibarr_deprecated', 'experimental_deprecated' or a version string like 'x.y.z'
-		$this->version = '1.2.1';
+		$this->version = '1.2.2';
 		// Url to the file with your last numberversion of this module
 		//$this->url_last_version = 'http://www.example.com/versionmodule.txt';
 
@@ -182,6 +182,7 @@ class modPOSPlus extends DolibarrModules
 			5 => array('PRODUCTO_LIBRE', 'chaine', '0', 'Show the free zone (free product) button in TakePOS (default: hidden)', 1, 'current', 0),
 			6 => array('POSPLUS_CASHCOUNT', 'chaine', '1', 'Cash count by shift (opening, cash in/out, report X / Z)', 1, 'current', 0),
 			7 => array('POSPLUS_CASHCOUNT_BLIND', 'chaine', '1', 'Blind cash count: the cashier does not see the expected amounts', 1, 'current', 0),
+			8 => array('POSPLUS_PAYMENT_REF_REQUIRED', 'chaine', '1', 'Ask the payment reference (confirmation number) for every non-cash payment', 1, 'current', 0),
 		);
 
 		// Some keys to add into the overwriting translation tables
@@ -499,6 +500,17 @@ class modPOSPlus extends DolibarrModules
 		$result = $this->_load_tables('/posplus/sql/');
 		if ($result < 0) {
 			return -1; // Do not activate module if error 'not allowed' returned when loading module SQL queries (the _load_table run sql with run_sql with the error allowed parameter set to 'default')
+		}
+
+		// Cash in the foreign currencies (cash box, LIQBS mode, account of each terminal). A
+		// problem here does not prevent the activation: it is shown and can be retried from
+		// the setup page.
+		global $user;
+		dol_include_once('/posplus/lib/posplus.lib.php');
+		if (function_exists('posplus_setup_foreign_cash') && is_object($user)) {
+			foreach (posplus_setup_foreign_cash($this->db, $user) as $m) {
+				setEventMessages($m['msg'], null, ($m['type'] == 'info' ? 'mesgs' : ($m['type'] == 'warning' ? 'warnings' : 'errors')));
+			}
 		}
 
 		// Create extrafields during init

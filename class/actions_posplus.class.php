@@ -772,7 +772,7 @@ $(document).ready(function() {
 
 			// ---- Payments: each one in the currency of the box/account where it went ----
 			if ($facid) {
-				$sql = "SELECT p.pos_change as pos_change, pf.amount as amount, pf.multicurrency_amount, f.multicurrency_code,";
+				$sql = "SELECT p.pos_change as pos_change, p.num_paiement as num_payment, pf.amount as amount, pf.multicurrency_amount, f.multicurrency_code,";
 				$sql .= " cp.code, cp.libelle as label, ba.currency_code as bankcurrency";
 				$sql .= " FROM ".MAIN_DB_PREFIX."paiement_facture as pf";
 				$sql .= " JOIN ".MAIN_DB_PREFIX."facture as f ON f.rowid = pf.fk_facture";
@@ -802,6 +802,10 @@ $(document).ready(function() {
 						$out .= $row(dol_escape_htmltag(posplus_payment_label($obj->code, (string) $obj->label)), posplus_ticket_amount($payamount, $paycur), ($firstpay ? 'sep' : ''));
 						if ($haschange) {
 							$out .= $row($langs->trans('Change'), posplus_ticket_amount($obj->pos_change, $paycur));
+						}
+						// Reference of the payment (confirmation number of a transfer, mobile payment...)
+						if ((string) $obj->num_payment !== '') {
+							$out .= $row($langs->trans('PosplusTicketRef').': '.dol_escape_htmltag($obj->num_payment));
 						}
 						$firstpay = false;
 					}

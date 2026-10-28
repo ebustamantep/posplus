@@ -96,6 +96,7 @@ $formSetup->newItem('MODIFICAR_PRECIO')->setAsYesNo();	// Allow/disable the modi
 $formSetup->newItem('DESCUENTO_LINEA')->setAsYesNo();	// Allow/disable the line discount button in TakePOS
 $formSetup->newItem('VENTA_DIVIDIDA')->setAsYesNo();	// Show/hide the split sale button in TakePOS
 $formSetup->newItem('PRODUCTO_LIBRE')->setAsYesNo();	// Show/hide the free zone (free product) button in TakePOS
+$formSetup->newItem('POSPLUS_PAYMENT_REF_REQUIRED')->setAsYesNo();	// Ask the reference of every payment but cash
 
 // Cash count by shift (opening, cash in/out, report X / Z)
 $formSetup->newItem('PosplusCashCountSection')->setAsTitle();
@@ -115,6 +116,22 @@ if (versioncompare(explode('.', DOL_VERSION), array(15)) < 0 && $action == 'upda
 }
 
 include DOL_DOCUMENT_ROOT.'/core/actions_setmoduleoptions.inc.php';
+
+// Cash in the foreign currencies: same setup as at the module activation
+if ($action == 'setupforeigncash') {
+	if (GETPOST('token', 'alpha') !== currentToken()) {
+		accessforbidden($langs->trans('PosplusErrorInvalidToken'));
+	}
+	$msgs = posplus_setup_foreign_cash($db, $user);
+	if (empty($msgs)) {
+		setEventMessages($langs->trans('PosplusFxAllOk'), null, 'mesgs');
+	}
+	foreach ($msgs as $m) {
+		setEventMessages($m['msg'], null, ($m['type'] == 'info' ? 'mesgs' : ($m['type'] == 'warning' ? 'warnings' : 'errors')));
+	}
+	header('Location: '.$_SERVER['PHP_SELF']);
+	exit;
+}
 
 $action = 'edit';
 
@@ -149,6 +166,22 @@ if (!empty($formSetup->items)) {
 
 if (empty($setupnotempty)) {
 	print '<br>'.$langs->trans("NothingToSetup");
+}
+
+// Cash in the foreign currencies: what is missing, and a button to set it up
+if (isModEnabled('multicurrency') && isModEnabled('bank')) {
+	print load_fiche_titre($langs->trans('PosplusFxSection'), '', '');
+	print '<span class="opacitymedium">'.$langs->trans('PosplusFxSectionHelp').'</span><br><br>';
+	$pending = posplus_setup_foreign_cash($db, $user, true);
+	if (empty($pending)) {
+		print '<div class="ok">'.img_picto('', 'tick', 'class="pictofixedwidth"').$langs->trans('PosplusFxAllOk').'</div>';
+	} else {
+		foreach ($pending as $m) {
+			print '<div class="'.($m['type'] == 'error' ? 'error' : 'warning').'">'.dol_escape_htmltag($m['msg']).'</div>';
+		}
+		print '<br><a class="butAction" href="'.$_SERVER['PHP_SELF'].'?action=setupforeigncash&token='.newToken().'">'.$langs->trans('PosplusFxRunButton').'</a>';
+	}
+	print '<br>';
 }
 
 // Page end
