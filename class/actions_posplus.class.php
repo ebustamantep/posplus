@@ -84,14 +84,54 @@ class ActionsPosplus extends CommonHookActions
 			return 0;
 		}
 
+		// Same lookup as the one Dolibarr does when a document takes the currency (it honours
+		// MULTICURRENCY_USE_RATE_ON_DOCUMENT_DATE), so the list shows the rate of the invoice.
 		include_once DOL_DOCUMENT_ROOT.'/multicurrency/class/multicurrency.class.php';
-		$multicurrency = new MultiCurrency($this->db);
-		$multicurrency->fetch(0, $sessioncurrency);
-		if (!isset($multicurrency->rate->rate) || (float) $multicurrency->rate->rate <= 0) {
-			return 0;
+		$tmp = MultiCurrency::getIdAndTxFromCode($this->db, $sessioncurrency, dol_now());
+		if (empty($tmp[0])) {
+			return 0; // Unknown currency (getIdAndTxFromCode then answers a rate of 1)
 		}
+		$rate = (float) (isset($tmp[1]) ? $tmp[1] : 0);
 
-		return (float) $multicurrency->rate->rate;
+		return ($rate > 0 ? $rate : 0);
+	}
+
+	/**
+	 * Keep the draft POS invoice at the current rate. TakePOS only sets the rate when the
+	 * invoice takes the currency, so a draft opened before the rate was updated keeps the
+	 * old one, while the list and the screen showed the new one. The amounts in the foreign
+	 * currency are recalculated from the ones in the main currency (these do not change).
+	 *
+	 * @param Facture $invoice The invoice shown in the POS
+	 * @return void
+	 */
+	protected function refreshDraftRate($invoice)
+	{
+		global $conf, $user;
+
+		if (!is_object($invoice) || empty($invoice->id) || $invoice->element != 'facture' || (int) $invoice->status != $invoice::STATUS_DRAFT) {
+			return;
+		}
+		$sessioncurrency = (!empty($_SESSION["takeposcustomercurrency"]) ? $_SESSION["takeposcustomercurrency"] : '');
+		if ($sessioncurrency == '' || $invoice->multicurrency_code != $sessioncurrency) {
+			return;
+		}
+		$rate = $this->getPosCurrencyRate();
+		if ($rate <= 0 || abs((float) $invoice->multicurrency_tx - $rate) < 0.000000001) {
+			return;
+		}
+		if (empty($invoice->lines)) {
+			$invoice->fetch_lines();
+		}
+		$this->db->begin();
+		$res = $invoice->setMulticurrencyRate($rate, 2);
+		if ($res > 0) {
+			$this->db->commit();
+			$invoice->fetch($invoice->id); // reload the recalculated amounts
+		} else {
+			$this->db->rollback();
+			dol_syslog('posplus: refresh of the rate of invoice '.$invoice->id.' failed: '.$invoice->error, LOG_ERR);
+		}
 	}
 
 	/**
@@ -288,14 +328,34 @@ function posplusFormatCurrency(amount) {
 	return out + " " + sym;
 }
 
-function posplusAppendSecondaryPrice(containerId, price) {
+function posplusRound2(amount) {
+	var sign = (amount < 0 ? -1 : 1);
+	return sign * Math.round((Math.abs(amount) + Number.EPSILON) * 100) / 100;
+}
+
+// Amount in the foreign currency as Dolibarr computes it on the invoice line (qty 1):
+// unit price without tax x rate, rounded, then the tax computed on that amount. Converting
+// the price with tax (or a rounded total in the main currency) gives a few cents/units
+// of difference with the invoice and the ticket.
+function posplusConvertPrice(priceHt, priceTtc, withTax) {
+	var rate = posplusMulticurrencyRate;
+	if (!(priceHt > 0)) {
+		return posplusRound2((withTax ? priceTtc : priceHt) * rate);
+	}
+	var ht = posplusRound2(priceHt * rate);
+	if (!withTax) { return ht; }
+	var vat = Math.round((priceTtc / priceHt - 1) * 10000000) / 10000000; // tax rate of the product
+	return posplusRound2(ht + posplusRound2(ht * vat));
+}
+
+function posplusAppendSecondaryPrice(containerId, priceHt, priceTtc, withTax) {
 	var el = document.getElementById(containerId);
 	if (!el) { return; }
 
 	// Avoid duplicates if the element is filled several times (e.g. re-render).
 	if (el.querySelector(".productprice-sub")) { return; }
 
-	var converted = price * posplusMulticurrencyRate;
+	var converted = posplusConvertPrice(priceHt, priceTtc, withTax);
 	var sub = document.createElement("div");
 	sub.className = "productprice-sub";
 	sub.textContent = posplusFormatCurrency(converted);
@@ -393,14 +453,72 @@ $(document).ready(function() {
 		$divIndex = ($parameters['caller'] == 'search2') ? 'i' : 'ishow';
 		$dataIndex = ($parameters['caller'] == 'search2') ? 'i' : 'idata';
 
-		$priceField = (getDolGlobalInt('TAKEPOS_CHANGE_PRICE_HT') ? 'price' : 'price_ttc');
+		$withTax = (getDolGlobalInt('TAKEPOS_CHANGE_PRICE_HT') ? 'false' : 'true');
 
 		$this->resprints = '
-		if (typeof '.$dataIndex.' !== "undefined" && data['.$dataIndex.'] && data['.$dataIndex.']["'.$priceField.'"] !== undefined) {
-			posplusAppendSecondaryPrice("proprice"+'.$divIndex.', parseFloat(data['.$dataIndex.']["'.$priceField.'"]));
+		if (typeof '.$dataIndex.' !== "undefined" && data['.$dataIndex.'] && data['.$dataIndex.']["price"] !== undefined) {
+			posplusAppendSecondaryPrice("proprice"+'.$divIndex.', parseFloat(data['.$dataIndex.']["price"]), parseFloat(data['.$dataIndex.']["price_ttc"]), '.$withTax.');
 		}';
 
 		return 0;
+	}
+
+	/**
+	 * JS that puts in the TakePOS invoice the amounts in the customer currency stored on the
+	 * invoice. The core shows "total in main currency x current rate": the total is already
+	 * rounded to cents of the main currency (2.67 $ x 889.40 = 2374.70 instead of 2372.92)
+	 * and the rate may not be the one of the invoice, so the screen did not match the payment
+	 * popup nor the ticket, which use the amounts of the invoice.
+	 *
+	 * @param Facture $invoice The invoice shown
+	 * @return string HTML (script) or ''
+	 */
+	protected function getInvoiceForeignAmountsJs($invoice)
+	{
+		global $conf;
+
+		$sessioncurrency = (!empty($_SESSION["takeposcustomercurrency"]) ? $_SESSION["takeposcustomercurrency"] : '');
+		if (!isModEnabled('multicurrency') || $sessioncurrency == '' || $sessioncurrency == $conf->currency) {
+			return ''; // The core shows no amount in the customer currency
+		}
+		if (empty($invoice->id) || $invoice->multicurrency_code != $sessioncurrency || (float) $invoice->multicurrency_tx <= 0) {
+			return '';
+		}
+
+		$fmt = function ($amount) use ($sessioncurrency) {
+			return '('.price(price2num($amount, 'MT')).' '.$sessioncurrency.')';
+		};
+		$data = array(
+			'total' => array($fmt($invoice->multicurrency_total_ht), $fmt($invoice->multicurrency_total_ttc)),
+			'lines' => array(),
+		);
+		if (!empty($invoice->lines)) {
+			foreach ($invoice->lines as $line) {
+				$data['lines'][(string) $line->id] = array($fmt($line->multicurrency_total_ht), $fmt($line->multicurrency_total_ttc));
+			}
+		}
+		$jsonflags = JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT;
+
+		return '<script>
+	$(document).ready(function() {
+		var mc = '.json_encode($data, $jsonflags).';
+		var showht = '.(getDolGlobalString('TAKEPOS_SHOW_HT') ? 'true' : 'false').';
+		// Spans of the core with the amount in the customer currency (italic, "(... CUR)")
+		function posplusMcSpans(scope) {
+			return $(scope).find("span[id=\"linecolht-span-total\"]").filter(function() { return this.style.fontStyle === "italic"; });
+		}
+		function posplusMcSet(spans, vals) {
+			// [HT, TTC] when the core shows both columns, [TTC] otherwise
+			var order = (showht ? [0, 1] : [1]);
+			spans.each(function(i) { if (i < order.length) { $(this).text(vals[order[i]]); } });
+		}
+		var table = $("table.postablelines");
+		posplusMcSet(posplusMcSpans(table).filter(function() { return !$(this).closest("tr.posinvoiceline").length; }), mc.total);
+		$.each(mc.lines, function(id, vals) {
+			posplusMcSet(posplusMcSpans(table.find("tr.posinvoiceline").filter(function() { return this.id === id; })), vals);
+		});
+	});
+	</script>';
 	}
 
 	/**
@@ -424,6 +542,8 @@ $(document).ready(function() {
 		if (!is_object($object) || empty($object->element) || $object->element != 'facture') {
 			return 0;
 		}
+
+		$this->resprints .= $this->getInvoiceForeignAmountsJs($object);
 
 		// Load the module translation file so the intra label is translated.
 		$langs->load('posplus@posplus');
@@ -450,7 +570,7 @@ $(document).ready(function() {
 		// The customer data is user input: it is passed as JSON safe inside <script> (HEX
 		// flags) and inserted with .text(), never as HTML.
 		$jsonflags = JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT;
-		$this->resprints = '<script>
+		$this->resprints .= '<script>
 	$(document).ready(function() {
 		var cs = $("#customerandsales");
 		if (!cs.length) { return; }
@@ -486,7 +606,14 @@ $(document).ready(function() {
 		global $langs;
 
 		$contexts = explode(':', isset($parameters['context']) ? $parameters['context'] : '');
-		if (!in_array('takeposinvoice', $contexts) || empty($action)) {
+		if (!in_array('takeposinvoice', $contexts)) {
+			return 0;
+		}
+
+		// Draft at the current rate before any action and display (see refreshDraftRate)
+		$this->refreshDraftRate($object);
+
+		if (empty($action)) {
 			return 0;
 		}
 

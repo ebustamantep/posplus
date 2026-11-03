@@ -1,5 +1,19 @@
 # CHANGELOG MODULE POSPLUS FOR [DOLIBARR ERP CRM](https://www.dolibarr.org)
 
+## 1.2.3
+
+### Actualizar desde la 1.2.2
+
+Reemplazar la carpeta `custom/posplus`. No hay cambios de tablas, permisos, menús ni opciones: no hace falta reactivar el módulo.
+
+### Montos en la moneda del cliente (Bs) iguales en listado, factura y ticket
+
+Antes, el mismo producto salía con tres montos distintos en Bs: el listado convertía el precio con IVA sin redondear, la factura en pantalla (core) convertía el total ya redondeado a céntimos de $ (2,67 $ × 889,40 = 2.374,70 Bs en lugar de 2.372,92) y ambos usaban la última tasa, mientras que el ticket usa la tasa y los montos guardados en la factura.
+
+- La factura borrador del POS se pone a la tasa vigente cada vez que se muestra (TakePOS solo la fijaba al asignar la moneda, así que un borrador abierto antes de actualizar la tasa conservaba la anterior). Los montos en $ no cambian; los de Bs se recalculan.
+- La factura en pantalla muestra los montos en Bs guardados en la factura (líneas y total), que son los que cobra el popup y los que imprime el ticket. Las facturas ya cobradas (historial) muestran los suyos, a la tasa con que se cobraron.
+- El listado de productos calcula los Bs como Dolibarr en la línea de factura: precio sin IVA × tasa, redondeado, más el IVA calculado en Bs. La tasa es la misma que toma la factura (respeta `MULTICURRENCY_USE_RATE_ON_DOCUMENT_DATE`).
+
 ## 1.2.2
 
 ### Actualizar desde la 1.2.1
