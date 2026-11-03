@@ -522,6 +522,53 @@ $(document).ready(function() {
 	}
 
 	/**
+	 * JS that removes the quantity printed twice in the lines of the TakePOS invoice. When the
+	 * stock of the line is shown, the takepos/invoice.php of this installation prints the qty
+	 * at the start of the cell and again before the stock, glued together: a qty of 1 reads
+	 * "11", a qty of 2 reads "22". The text is only changed when it is exactly the qty twice,
+	 * so a core without the defect is left untouched.
+	 *
+	 * @param Facture $invoice The invoice shown
+	 * @return string HTML (script) or ''
+	 */
+	protected function getInvoiceQtyFixJs($invoice)
+	{
+		if (!isModEnabled('stock') || getDolGlobalString('TAKEPOS_HIDE_STOCK_ON_LINE') || empty($invoice->lines)) {
+			return ''; // The core does not show the stock on the lines
+		}
+
+		$qtys = array();
+		foreach ($invoice->lines as $line) {
+			if ($line->fk_product > 0) {
+				$qtys[(string) $line->id] = (string) $line->qty; // as the core prints it
+			}
+		}
+		if (empty($qtys)) {
+			return '';
+		}
+		$jsonflags = JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT;
+
+		return '<script>
+	$(document).ready(function() {
+		var qtys = '.json_encode($qtys, $jsonflags).';
+		$("table.postablelines tr.posinvoiceline").each(function() {
+			var qty = (Object.prototype.hasOwnProperty.call(qtys, this.id) ? qtys[this.id] : null);
+			if (qty === null) { return; }
+			// Cell of the qty: the one with the stock block "(stock)"
+			$(this).children("td").has("span.opacitylow").each(function() {
+				var node = this.firstChild;
+				if (!node || node.nodeType !== 3) { return; }
+				var m = node.nodeValue.match(/^(\s*)(\S+?)([\s ]*)$/);
+				if (m && m[2] === qty + qty) {
+					node.nodeValue = m[1] + qty + m[3];
+				}
+			});
+		});
+	});
+	</script>';
+	}
+
+	/**
 	 * completeTakePosInvoiceHeader. Called on the TakePOS invoice header (context
 	 * "takeposinvoice"). We rewrite the customer block (#customerandsales) so it
 	 * shows the full customer name and, on a second line, the intracommunity VAT
@@ -544,6 +591,7 @@ $(document).ready(function() {
 		}
 
 		$this->resprints .= $this->getInvoiceForeignAmountsJs($object);
+		$this->resprints .= $this->getInvoiceQtyFixJs($object);
 
 		// Load the module translation file so the intra label is translated.
 		$langs->load('posplus@posplus');

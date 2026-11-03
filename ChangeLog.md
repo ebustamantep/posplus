@@ -1,5 +1,15 @@
 # CHANGELOG MODULE POSPLUS FOR [DOLIBARR ERP CRM](https://www.dolibarr.org)
 
+## 1.2.4
+
+### Actualizar desde la 1.2.3
+
+Reemplazar la carpeta `custom/posplus`. No hay cambios de tablas, permisos, menús ni opciones: no hace falta reactivar el módulo.
+
+### Cantidad repetida en la factura en pantalla
+
+Con el stock visible en las líneas, el `takepos/invoice.php` de esta instalación imprime la cantidad al inicio de la celda y otra vez antes del stock, pegadas: 1 se veía "11" y 2 se veía "22". POSPlus corrige el texto en pantalla sin tocar el núcleo, y solo cuando es exactamente la cantidad dos veces (con un núcleo sin el defecto no cambia nada). El ticket no estaba afectado.
+
 ## 1.2.3
 
 ### Actualizar desde la 1.2.2
