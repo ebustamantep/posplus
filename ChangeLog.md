@@ -1,5 +1,17 @@
 # CHANGELOG MODULE POSPLUS FOR [DOLIBARR ERP CRM](https://www.dolibarr.org)
 
+## 1.2.5
+
+### Actualizar desde la 1.2.4
+
+Reemplazar la carpeta `custom/posplus`. No hay cambios de tablas, permisos, menús ni opciones: no hace falta reactivar el módulo.
+
+### Precio en Bs del listado de productos
+
+- El listado convierte el precio con IVA del producto (precio × tasa, redondeado a céntimos), que es el que TakePOS pone en la línea de factura. La 1.2.3 reconstruía el precio con IVA a partir del precio sin IVA, y con `MAIN_MAX_DECIMALS_UNIT` en 2 ese precio está redondeado (0,40 $ con IVA → 0,34 sin IVA → 0,34 × 1,16 ≠ 0,40): el listado mostraba 356,45 Bs en lugar de 356,44.
+
+**Configuración necesaria:** *Máximo de decimales para precios unitarios* (`MAIN_MAX_DECIMALS_UNIT`) debe estar en 5 (valor por defecto de Dolibarr). Con 2, la línea de un producto de 0,40 $ con IVA se guarda a 0,34 sin IVA y la venta sale a 0,39 $ (y 351,45 Bs en lugar de 356,44): el error está en los dólares, no en la tasa.
+
 ## 1.2.4
 
 ### Actualizar desde la 1.2.3

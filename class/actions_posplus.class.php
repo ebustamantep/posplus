@@ -333,19 +333,13 @@ function posplusRound2(amount) {
 	return sign * Math.round((Math.abs(amount) + Number.EPSILON) * 100) / 100;
 }
 
-// Amount in the foreign currency as Dolibarr computes it on the invoice line (qty 1):
-// unit price without tax x rate, rounded, then the tax computed on that amount. Converting
-// the price with tax (or a rounded total in the main currency) gives a few cents/units
-// of difference with the invoice and the ticket.
+// Amount in the foreign currency of the invoice line (qty 1): the price x rate, rounded to
+// cents of the foreign currency. TakePOS adds the line with the price of the product
+// (with tax for a price defined with tax), so the line in Bs is that price x rate. The
+// price without tax is not used to rebuild the one with tax: it may be stored rounded
+// (MAIN_MAX_DECIMALS_UNIT), and 0.34 x 1.16 is not 0.40.
 function posplusConvertPrice(priceHt, priceTtc, withTax) {
-	var rate = posplusMulticurrencyRate;
-	if (!(priceHt > 0)) {
-		return posplusRound2((withTax ? priceTtc : priceHt) * rate);
-	}
-	var ht = posplusRound2(priceHt * rate);
-	if (!withTax) { return ht; }
-	var vat = Math.round((priceTtc / priceHt - 1) * 10000000) / 10000000; // tax rate of the product
-	return posplusRound2(ht + posplusRound2(ht * vat));
+	return posplusRound2((withTax ? priceTtc : priceHt) * posplusMulticurrencyRate);
 }
 
 function posplusAppendSecondaryPrice(containerId, priceHt, priceTtc, withTax) {
