@@ -801,11 +801,38 @@ $(document).ready(function() {
 				$out .= $langs->trans('PosplusTicketCustomerId').': '.dol_escape_htmltag($socid).'<br>';
 			}
 			$out .= $langs->trans('PosplusTicketCustomerName').': '.dol_escape_htmltag($soc->name).'<br>';
-			if ($soc->town) {
+			// Shipping address (option of the setup): the shipping contact of the invoice
+			// when there is one, otherwise the address of the customer.
+			$shipcontact = null;
+			if (getDolGlobalString('POSPLUS_TICKET_SHIPPING_ADDRESS')) {
+				$shipids = $object->getIdContact('external', 'SHIPPING');
+				if (!empty($shipids)) {
+					require_once DOL_DOCUMENT_ROOT.'/contact/class/contact.class.php';
+					$tmpcontact = new Contact($db);
+					if ($tmpcontact->fetch((int) reset($shipids)) > 0) {
+						$shipcontact = $tmpcontact;
+					}
+				}
+				$addrsrc = ($shipcontact && ($shipcontact->address || $shipcontact->town) ? $shipcontact : $soc);
+				$shiptown = trim(trim($addrsrc->zip.' '.$addrsrc->town).($addrsrc->state ? ' - '.$addrsrc->state : ''), ' -');
+				if ($addrsrc->address || $shiptown) {
+					$out .= $langs->trans('PosplusTicketShippingAddress').':<br>';
+					if ($shipcontact && $addrsrc === $shipcontact) {
+						$out .= dol_escape_htmltag($shipcontact->getFullName($langs)).'<br>';
+					}
+					if ($addrsrc->address) {
+						$out .= '<span class="upper">'.nl2br(dol_escape_htmltag($addrsrc->address)).'</span><br>';
+					}
+					if ($shiptown) {
+						$out .= '<span class="upper">'.dol_escape_htmltag($shiptown).'</span><br>';
+					}
+				}
+			} elseif ($soc->town) {
 				$out .= '<span class="upper">'.dol_escape_htmltag($soc->town).'</span><br>';
 			}
 		} else {
 			$soc = null;
+			$shipcontact = null;
 		}
 		$operator = '';
 		$authorid = (!empty($object->user_creation_id) ? (int) $object->user_creation_id : (int) $user->id);
@@ -816,8 +843,16 @@ $(document).ready(function() {
 			}
 		}
 		$phoneandop = '';
-		if ($soc && $soc->phone) {
-			$phoneandop .= $langs->trans('PosplusTicketPhone').': '.dol_escape_htmltag($soc->phone).' ';
+		// Phones of the customer (and of the shipping contact), unless hidden in the setup
+		if ($soc && !getDolGlobalString('POSPLUS_TICKET_HIDE_PHONES')) {
+			$phones = array($soc->phone, $soc->phone_mobile);
+			if ($shipcontact) {
+				$phones = array_merge($phones, array($shipcontact->phone_pro, $shipcontact->phone_mobile));
+			}
+			$phones = array_unique(array_filter(array_map('trim', array_map('strval', $phones))));
+			if ($phones) {
+				$phoneandop .= $langs->trans('PosplusTicketPhone').': '.dol_escape_htmltag(implode(' / ', $phones)).' ';
+			}
 		}
 		if ($operator) {
 			$phoneandop .= $langs->trans('PosplusTicketOperator').': '.dol_escape_htmltag($operator);

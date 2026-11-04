@@ -1,5 +1,17 @@
 # CHANGELOG MODULE POSPLUS FOR [DOLIBARR ERP CRM](https://www.dolibarr.org)
 
+## 1.2.7
+
+### Actualizar desde la 1.2.6
+
+Reemplazar la carpeta `custom/posplus`. No hay cambios de tablas, permisos ni menús: no hace falta reactivar el módulo.
+
+### Ticket: dirección de despacho y teléfonos del cliente
+
+- Nueva sección del setup **Datos del cliente en el ticket** con dos opciones.
+- **Imprimir la dirección de despacho** (apagada por defecto): bajo el nombre del cliente se imprime la dirección del contacto de envío de la factura o, si no hay, la del cliente (dirección, código postal, ciudad y estado). Apagada, el ticket queda como antes (solo la ciudad).
+- **Imprimir los teléfonos del cliente** (encendida por defecto, como hasta ahora): se imprimen el fijo y el móvil del cliente y los del contacto de envío, sin repetir. Se guarda invertida (`POSPLUS_TICKET_HIDE_PHONES`) para que las instalaciones existentes sigan imprimiéndolos sin tocar nada.
+
 ## 1.2.6
 
 ### Actualizar desde la 1.2.5

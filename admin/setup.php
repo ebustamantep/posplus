@@ -103,6 +103,15 @@ $formSetup->newItem('PosplusCashCountSection')->setAsTitle();
 $formSetup->newItem('POSPLUS_CASHCOUNT')->setAsYesNo();
 $formSetup->newItem('POSPLUS_CASHCOUNT_BLIND')->setAsYesNo();
 
+// Customer data printed on the ticket
+$formSetup->newItem('PosplusTicketSection')->setAsTitle();
+$formSetup->newItem('POSPLUS_TICKET_SHIPPING_ADDRESS')->setAsYesNo();	// Print the shipping address of the customer
+// Phones are printed by default: the constant stores "hide" (the on/off switch deletes the
+// constant when it is turned off), so it is shown reverted.
+$item = $formSetup->newItem('POSPLUS_TICKET_HIDE_PHONES')->setAsYesNo();
+$item->fieldParams['revertonoff'] = 1;
+$item->nameText = $langs->trans('PosplusTicketPrintPhones');
+
 $setupnotempty = count($formSetup->items);
 
 
