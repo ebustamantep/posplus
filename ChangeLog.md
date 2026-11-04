@@ -1,5 +1,17 @@
 # CHANGELOG MODULE POSPLUS FOR [DOLIBARR ERP CRM](https://www.dolibarr.org)
 
+## 1.2.6
+
+### Actualizar desde la 1.2.5
+
+Reemplazar la carpeta `custom/posplus`. No hay cambios de tablas, permisos, menús ni opciones: no hace falta reactivar el módulo.
+
+### Cobro: lógica en una clase compartida (sin cambios visibles)
+
+- El registro del cobro (validación de la factura, stock, pago en la moneda de cada caja, línea bancaria, vuelto, referencia obligatoria y cierre de la factura) pasa de `payplus_ajax.php` a la clase `PosplusPayment` (`class/pospluspayment.class.php`). El endpoint del popup Pagar solo comprueba el token, los permisos y la factura, y llama a la clase.
+- El comportamiento es el mismo: se comparó el código anterior con el nuevo en 13 cobros (efectivo en $ con vuelto, efectivo en Bs parcial, punto de venta y pago móvil con referencia, mezcla de $ y Bs, y los errores de referencia, moneda, monto, modo, factura pagada, token y factura inexistente) con resultados idénticos en respuestas, pagos, líneas bancarias, stock y estado de la factura.
+- Prepara la venta sin conexión de la 2.0, que registrará los cobros con esta misma clase (ver `docs/OFFLINE.md`).
+
 ## 1.2.5
 
 ### Actualizar desde la 1.2.4
