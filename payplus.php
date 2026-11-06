@@ -238,7 +238,23 @@ $jsmodes = array();
 $i = 0;
 foreach ($arrayOfPaymentModes as $mode) {
 	$i++;
+	// Cash or bank, for the color of its button: the type of its account, or the code LIQ...
+	// when there is no bank account.
+	if (isModEnabled('bank') && $mode['accountid'] > 0) {
+		$iscash = posplus_bank_account_is_cash($db, $mode['accountid']);
+	} else {
+		$iscash = (strpos($mode['code'], 'LIQ') === 0);
+	}
+	// Pago Movil (mobile transfer) gets its own shade of blue: found by its code or its label,
+	// since its code is chosen by each installation.
+	$ismobile = false;
+	if (!$iscash) {
+		$haystack = $mode['code'].' '.$mode['label'].' '.posplus_payment_label($mode['code'], $mode['label']);
+		$ismobile = (bool) preg_match('/m(o|ó|Ó)vil/iu', $haystack);
+	}
 	$jsmodes[] = array(
+		'iscash' => $iscash,
+		'ismobile' => $ismobile,
 		'code' => $mode['code'],
 		'label' => posplus_payment_label($mode['code'], $mode['label']),
 		'accountid' => (int) $mode['accountid'],
@@ -292,8 +308,23 @@ body { background-color: #fff; padding: 10px; font-size: 14px; font-family: Aria
 .payplus-amounts .field input.posplus-ref-missing { border-color: #c00; background-color: #fff0f0; }
 .payplus-rate-hint { font-size: 0.85em; opacity: 0.75; margin-top: 6px; }
 .payplus-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
-.payplus-grid .btn-mode { font-size: 1.05em; padding: 10px 8px; cursor: pointer; }
-.payplus-btn-delayed { font-size: 1.05em; padding: 10px 8px; margin-bottom: 12px; width: 100%; cursor: pointer; }
+.payplus-grid .btn-mode { font-size: 1.05em; padding: 10px 8px; cursor: pointer; border: 1px solid; border-radius: 4px; }
+.payplus-grid .btn-cash-main { background-color: #1e7b34; border-color: #155d27; color: #fff; }
+.payplus-grid .btn-cash-main:hover:enabled { background-color: #186a2c; }
+.payplus-grid .btn-cash-foreign { background-color: #b9e8c4; border-color: #6cc283; color: #0d3d1b; }
+.payplus-grid .btn-cash-foreign:hover:enabled { background-color: #a3dfb2; }
+.payplus-grid .btn-bank-main { background-color: #1f5fa6; border-color: #174a82; color: #fff; }
+.payplus-grid .btn-bank-main:hover:enabled { background-color: #1a5290; }
+.payplus-grid .btn-bank-foreign { background-color: #bcd8f5; border-color: #6fa3dc; color: #0b2f57; }
+.payplus-grid .btn-bank-foreign:hover:enabled { background-color: #a6caf0; }
+.payplus-grid .btn-mobile-main { background-color: #4338ca; border-color: #352ca0; color: #fff; }
+.payplus-grid .btn-mobile-main:hover:enabled { background-color: #3a30b0; }
+.payplus-grid .btn-mobile-foreign { background-color: #cdc9f7; border-color: #8f86e6; color: #241b66; }
+.payplus-grid .btn-mobile-foreign:hover:enabled { background-color: #bab4f3; }
+.payplus-grid .btn-mode:disabled { cursor: not-allowed; opacity: 0.55; }
+.payplus-btn-delayed { font-size: 1.05em; padding: 10px 8px; margin-bottom: 12px; width: 100%; cursor: pointer; background-color: #ffd9a8; border: 1px solid #f0a64a; border-radius: 4px; color: #5c3200; }
+.payplus-btn-delayed:hover:enabled { background-color: #ffcd8c; }
+.payplus-btn-delayed:disabled { cursor: not-allowed; opacity: 0.55; }
 .payplus-btn-close { margin-top: 12px; }
 .payplus-note { font-size: 0.9em; opacity: 0.8; margin-top: 6px; }
 .payplus-grid .btn-mode-off { cursor: not-allowed; opacity: 0.45; }
@@ -355,11 +386,13 @@ foreach ($jsmodes as $m) {
 	if ($m['currency'] != $maincurrency) {
 		$label .= ' ('.$m['currency'].')';
 	}
+	// Color: cash in green, bank in blue; darker in the main currency, lighter in the foreign one
+	$colorclass = ($m['iscash'] ? 'btn-cash' : ($m['ismobile'] ? 'btn-mobile' : 'btn-bank')).($m['currency'] != $maincurrency ? '-foreign' : '-main');
 	if ($m['disabled'] !== '') {
 		// Mode not usable for this invoice: shown disabled, the reason is listed below.
-		print '<button type="button" class="btn-mode btn-mode-off" disabled title="'.dol_escape_htmltag($m['disabled']).'">'.dol_escape_htmltag($label).'</button>';
+		print '<button type="button" class="btn-mode '.$colorclass.' btn-mode-off" disabled title="'.dol_escape_htmltag($m['disabled']).'">'.dol_escape_htmltag($label).'</button>';
 	} else {
-		print '<button type="button" class="btn-mode" onclick="posplusPayMode('.$idx.')">'.dol_escape_htmltag($label).'<span class="btn-amount" id="posplus_mode_amount_'.$idx.'"></span></button>';
+		print '<button type="button" class="btn-mode '.$colorclass.'" onclick="posplusPayMode('.$idx.')">'.dol_escape_htmltag($label).'<span class="btn-amount" id="posplus_mode_amount_'.$idx.'"></span></button>';
 	}
 	$idx++;
 }

@@ -1,5 +1,17 @@
 # CHANGELOG MODULE POSPLUS FOR [DOLIBARR ERP CRM](https://www.dolibarr.org)
 
+## 1.2.8
+
+### Actualizar desde la 1.2.7
+
+Reemplazar la carpeta `custom/posplus`. No hay cambios de tablas, permisos, menús ni opciones: no hace falta reactivar el módulo.
+
+### Colores de los botones del cobro
+
+- Los botones del popup de cobro se distinguen por color: **efectivo** en verde, **bancos** en azul, **Pago Móvil** en azul índigo y **Aplazado** en naranja claro.
+- Cada color tiene dos tonos según la moneda de la cuenta: oscuro (texto blanco) en la moneda principal, claro (texto oscuro) en la otra moneda. Ej.: efectivo en $ verde oscuro, efectivo en Bs verde claro.
+- Es efectivo el modo cuya cuenta es de tipo *Caja* (sin el módulo Bancos, el código LIQ...). Es Pago Móvil el modo cuyo código o nombre contiene "móvil".
+
 ## 1.2.7
 
 ### Actualizar desde la 1.2.6
